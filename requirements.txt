@@ -1,0 +1,4 @@
+PyQt6>=6.0.0
+jdatetime>=4.0.0
+requests>=2.20.0
+hijri-converter>=2.2.0
