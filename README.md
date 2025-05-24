@@ -16,6 +16,7 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
 * **User Preferences:** Remembers your last used theme, style, font size, compact mode, and window position.
 * **Draggable Interface:** Frameless window that can be moved around the screen.
 * **Cross-Platform:** Built with PyQt6.
+* **Easily Change Font of the widget from the pyw where it says: DEFAULT_FONT_FAMILY = "Arial", Use your own Font
 
 ## Requirements
 
