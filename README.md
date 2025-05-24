@@ -1,4 +1,4 @@
-# PyQt Shamsi Calendar Widget
+# PyQt Shamsi Windows Calendar Widget
 
 A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, and Hijri dates with daily events. Built with Python and PyQt6.
 
@@ -32,9 +32,8 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
     git clone [https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git)
     cd YOUR_REPOSITORY_NAME
     ```
-    *(You will replace `YOUR_USERNAME` and `YOUR_REPOSITORY_NAME` with your actual details after creating the repository on GitHub).*
 
-2.  **Create a virtual environment (recommended):**
+2.  **Create a virtual environment (optional):**
     ```bash
     python -m venv venv
     ```
@@ -53,3 +52,8 @@ Once the setup is complete, run the widget using:
 
 ```bash
 python shamsi_calendar_widget.pyw
+```
+
+## AutoStart
+
+You can put the pyw file inside the %Startup% folder of windows so it'll be autorun whenever you start your pc
