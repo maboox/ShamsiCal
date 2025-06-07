@@ -11,6 +11,7 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
     * Movable, translucent widget displaying inspirational quotes.
     * Configurable update frequency (hourly, daily, weekly).
     * Full quote management system for adding, editing, and deleting quotes.
+    * Selectable width presets (Narrow, Medium, Wide) with automatic height adjustment.
     * Shares theme settings with the main widget.
 * **Customizable Appearance:**
     * Multiple color schemes (Dark, Light, Nordic Blue, Forest Green, Warm Amber).
@@ -18,7 +19,7 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
     * Five font size options that apply to both widgets.
     * Compact mode for a minimalist view.
     * Hover effects on buttons for better interactivity.
-* **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings, and visibility.
+* **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings (including list, frequency, width), and visibility.
 * **Draggable Interface:** Frameless window that can be moved around the screen.
 * **Cross-Platform:** Built with PyQt6.
 * **Easily Change Font of the widget from the pyw where it says: DEFAULT_FONT_FAMILY = "Arial", Use your own Font
@@ -39,15 +40,7 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
     cd ShamsiCal
     ```
 
-2.  **Create a virtual environment (optional):**
-    ```bash
-    python -m venv venv
-    ```
-    Activate it:
-    * Windows: `.\venv\Scripts\activate`
-    * macOS/Linux: `source venv/bin/activate`
-
-3.  **Install dependencies:**
+2.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```

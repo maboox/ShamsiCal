@@ -61,6 +61,8 @@ color_schemes = {
     }
 }
 font_sizes = {'خیلی کوچک':8,'کوچک':10,'متوسط':15,'بزرگ':20,'خیلی بزرگ':24}
+quote_box_widths = {"باریک": 200, "متوسط": 280, "عریض": 360} # Width in pixels
+DEFAULT_QUOTE_BOX_WIDTH_KEY = "متوسط"
 
 class QuoteWidget(QWidget):
     def __init__(self, parent_widget, settings, initial_font_pt, initial_boxed_style):
@@ -69,6 +71,8 @@ class QuoteWidget(QWidget):
         self.settings = settings
         self.font_pt = initial_font_pt
         self.boxed_style = initial_boxed_style
+        self.quote_box_width_key = self.settings.value("quote_widget/width_key", DEFAULT_QUOTE_BOX_WIDTH_KEY)
+        self.quote_box_width_val = quote_box_widths.get(self.quote_box_width_key, quote_box_widths[DEFAULT_QUOTE_BOX_WIDTH_KEY])
         self.old_pos = None
 
         self.setWindowTitle("جعبه نقل قول")
@@ -135,13 +139,14 @@ class QuoteWidget(QWidget):
                     y = screen_geo.top()
                 self.move(x,y)
 
-    def save_settings(self): 
-        self.settings.setValue("quote_widget/pos", self.pos())
-        self.settings.setValue("quote_widget/last_update_timestamp", self.last_quote_update_timestamp)
+    def save_settings(self):
+        if self.isVisible(): # Only save position if visible, otherwise it might save a weird off-screen pos
+            self.settings.setValue("quote_widget/pos", self.pos())
+        self.settings.setValue("quote_widget/quotes_list", self.quotes_list)
         self.settings.setValue("quote_widget/frequency", self.quote_update_frequency)
-        self.settings.setValue("quote_widget/quotes_list", self.quotes_list) # Save current list
-        if hasattr(self.quote_label, 'text') and self.quote_label.text():
-            self.settings.setValue("quote_widget/current_quote_text", self.quote_label.text())
+        self.settings.setValue("quote_widget/width_key", self.quote_box_width_key)
+        self.settings.setValue("quote_widget/last_update_timestamp", self.last_quote_update_timestamp)
+        self.settings.setValue("quote_widget/current_quote_index", self.current_quote_index)
 
     def _load_quote_settings_and_start_timer(self):
         default_quotes = [
@@ -182,46 +187,42 @@ class QuoteWidget(QWidget):
             self._update_quote_text_display()
 
     def _update_quote_text_display(self, initial_load=False):
+        current_timestamp = time.time()
+        actual_quote_to_display = "(لیست نقل قول خالی است)"
+
         if not self.quotes_list:
-            self.quote_label.setText("(لیست نقل قول خالی است)")
-            self.adjustSize()
-            return
-
-        current_displayed_text = self.settings.value("quote_widget/current_quote_text", "")
-
-        if initial_load and current_displayed_text and current_displayed_text in self.quotes_list:
-            # If it's an initial load and the last displayed quote is still valid and within the update interval,
-            # keep it to maintain consistency across restarts.
-            current_timestamp = time.time()
-            interval_seconds = self._get_interval_seconds()
-            if (current_timestamp - self.last_quote_update_timestamp) < interval_seconds:
-                self.quote_label.setText(current_displayed_text)
-                self.adjustSize()
-                return 
-        
-        new_quote = ""
-        if len(self.quotes_list) == 1:
-            new_quote = self.quotes_list[0]
+            actual_quote_to_display = "(لیست نقل قول خالی است)"
         else:
-            # Try to pick a different quote than the current one displayed on the label
-            # This avoids immediately re-picking the same quote if possible.
-            label_current_text = self.quote_label.text()
-            possible_quotes = [q for q in self.quotes_list if q != label_current_text]
-            if not possible_quotes: # All quotes are the same as current (e.g. list has duplicates of current)
-                new_quote = random.choice(self.quotes_list)
+            # Determine if we need to update or can use existing displayed quote
+            # This logic simplifies: always pick a quote based on timer or if forced by initial_load/settings change
+            if not initial_load and (current_timestamp - self.last_quote_update_timestamp) < self._get_interval_seconds():
+                # Not enough time passed, keep current quote if available in label
+                # This part can be tricky if the label text isn't perfectly synced with quotes_list[current_quote_index]
+                # For robustness, let's re-fetch from quotes_list using current_quote_index
+                if 0 <= self.current_quote_index < len(self.quotes_list):
+                    actual_quote_to_display = self.quotes_list[self.current_quote_index]
+                # else, it will fall through to pick a new one / default
             else:
-                new_quote = random.choice(possible_quotes)
-        
-        self.quote_label.setText(new_quote)
-        self.settings.setValue("quote_widget/current_quote_text", new_quote) # Save current displayed quote
-        
-        # Update timestamp only if it's a scheduled update, not an initial load that kept the old quote.
-        # Or if it's an initial load and we picked a new quote because the old one was stale.
-        if not initial_load or (initial_load and new_quote != current_displayed_text) :
-            self.last_quote_update_timestamp = time.time()
-            self.settings.setValue("quote_widget/last_update_timestamp", self.last_quote_update_timestamp)
-        
-        self.adjustSize()
+                # Time to pick a new quote
+                if len(self.quotes_list) > 1:
+                    new_indices = [i for i, _ in enumerate(self.quotes_list) if i != self.current_quote_index]
+                    self.current_quote_index = random.choice(new_indices) if new_indices else 0
+                elif self.quotes_list: # Only one quote
+                    self.current_quote_index = 0
+                # If list became empty somehow and wasn't caught above, default_quote will be used
+                
+                if 0 <= self.current_quote_index < len(self.quotes_list):
+                    actual_quote_to_display = self.quotes_list[self.current_quote_index]
+                
+                self.last_quote_update_timestamp = current_timestamp
+                # self.settings.setValue("quote_widget/last_update_timestamp", self.last_quote_update_timestamp) # Saved by save_settings
+                # self.settings.setValue("quote_widget/current_quote_index", self.current_quote_index) # Saved by save_settings
+
+        self.quote_label.setWordWrap(True)
+        self.quote_label.setText(actual_quote_to_display)
+        self.setFixedWidth(self.quote_box_width_val) 
+        self.quote_label.adjustSize() # Allow label to determine its new height
+        self.adjustSize() # Widget adjusts to new label height and fixed width
 
     def set_quote_settings(self, quotes, frequency):
         self.quotes_list = quotes if quotes else []
@@ -238,10 +239,9 @@ class QuoteWidget(QWidget):
         scheme = color_schemes[self.parent_widget.active_scheme_key]
 
         if self.boxed_style:
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False) # Ensure opaqueness for boxed style
-            # Use box_bg and box_border for consistency with main widget's internal boxes
-            bg_color = QColor(scheme.get('box_bg', scheme['widget_bg'])) # Fallback to widget_bg if box_bg not in theme
-            border_color = QColor(scheme.get('box_border', scheme['menu_border'])) # Fallback to menu_border
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+            bg_color = QColor(scheme.get('box_bg', scheme['widget_bg'])) 
+            border_color = QColor(scheme.get('box_border', scheme['menu_border']))
             self.setStyleSheet(
                 f"QWidget {{ "
                 f"background-color: {bg_color.name(QColor.NameFormat.HexArgb)}; "
@@ -251,31 +251,33 @@ class QuoteWidget(QWidget):
             )
         else:
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            self.setStyleSheet(f"QWidget {{ background-color: transparent; border-radius: 6px; }}") # Ensure no border if not boxed
+            self.setStyleSheet(f"QWidget {{ background-color: transparent; border-radius: 6px; }}")
         
-        label_text_color = scheme.get('box_text', scheme['widget_text']) 
-        label_style = f"""
-            QLabel {{
-                color: {label_text_color.name(QColor.NameFormat.HexArgb)};
-                background-color: transparent;
-                padding: 5px; 
-                border: none;
-            }}
-        """
-        self.quote_label.setStyleSheet(label_style)
+        label_text_color = scheme.get('box_text', scheme['widget_text'])
+        self.quote_label.setStyleSheet(f"QLabel {{ color: {label_text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none; }}")
         
-        # Use self.font_pt for the quote label
         current_label_font_size = self.font_pt - 2 if self.font_pt > 10 else self.font_pt
-        current_label_font_size = max(8, current_label_font_size) # Ensure a minimum font size
+        current_label_font_size = max(8, current_label_font_size)
         self.quote_label.setFont(QFont(DEFAULT_FONT_FAMILY, current_label_font_size))
-        self.adjustSize()
+        
+        self._update_quote_text_display() # Update text and apply size constraints
 
-    def update_display_settings(self, font_pt=None, boxed_style=None):
-        if font_pt is not None:
+    def update_display_settings(self, font_pt=None, boxed_style=None, width_key=None):
+        changed = False
+        if font_pt is not None and self.font_pt != font_pt:
             self.font_pt = font_pt
-        if boxed_style is not None:
+            changed = True
+        if boxed_style is not None and self.boxed_style != boxed_style:
             self.boxed_style = boxed_style
-        self.apply_theme()
+            changed = True
+        if width_key is not None and self.quote_box_width_key != width_key:
+            self.quote_box_width_key = width_key
+            self.quote_box_width_val = quote_box_widths.get(width_key, quote_box_widths[DEFAULT_QUOTE_BOX_WIDTH_KEY])
+            changed = True
+        
+        if changed:
+            self.apply_theme() # This will also call _update_quote_text_display
+            self.save_settings() # Save if settings changed()
 
     def mousePressEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton:
@@ -645,6 +647,28 @@ class CalendarWidget(QWidget):
         
         quote_settings_menu.addMenu(frequency_menu)
 
+        # --- Quote Box Width Submenu ---
+        width_menu = QMenu("↔️ عرض جعبه نقل قول", quote_settings_menu)
+        width_menu.setStyleSheet(menu_style)
+        self.quote_width_action_group = QActionGroup(width_menu)
+        self.quote_width_action_group.setExclusive(True)
+
+        current_width_key = DEFAULT_QUOTE_BOX_WIDTH_KEY # Default
+        if hasattr(self, 'quote_widget') and self.quote_widget:
+            current_width_key = self.quote_widget.quote_box_width_key
+        else:
+            current_width_key = self.settings.value("quote_widget/width_key", DEFAULT_QUOTE_BOX_WIDTH_KEY)
+
+        for w_key, w_name_map in quote_box_widths.items(): # Assuming quote_box_widths keys are the display names for simplicity here, or map if needed
+            action = QAction(w_key, width_menu, checkable=True) # Use w_key as label
+            action.setData(w_key)
+            action.setChecked(w_key == current_width_key)
+            action.triggered.connect(self._handle_quote_width_change)
+            self.quote_width_action_group.addAction(action)
+            width_menu.addAction(action)
+        quote_settings_menu.addMenu(width_menu)
+        # --- End Quote Box Width Submenu ---
+
         # Edit Quote List Action
         edit_quotes_action = QAction("📝 ویرایش لیست نقل قول ها", quote_settings_menu)
         edit_quotes_action.triggered.connect(self._show_edit_quotes_dialog)
@@ -674,17 +698,23 @@ class CalendarWidget(QWidget):
             self.quote_widget.update_display_settings(font_pt=self.font_pt) 
 
     def _handle_quote_frequency_change(self):
-        # QActionGroup now handles the check state exclusivity.
-        # The 'checked' argument of the lambda is True for the selected action.
-        # We just need to apply the change.
         action = self.sender()
-        frequency_key = action.data()
-        if hasattr(self, 'quote_widget') and self.quote_widget:
-            self.quote_widget.set_quote_settings(quotes=self.quote_widget.quotes_list, frequency=frequency_key)
-        else:
-            # This case might occur if the menu is somehow triggered before quote_widget is fully up,
-            # or if quote_widget is hidden and we still want to save the setting.
-            self.settings.setValue("quote_widget/frequency", frequency_key)
+        if action and action.isChecked():
+            new_frequency = action.data()
+            if self.quote_widget:
+                self.quote_widget.set_quote_settings(frequency=new_frequency)
+            else: # Save directly if quote widget not yet fully initialized or visible
+                self.settings.setValue("quote_widget/frequency", new_frequency)
+            # No need to rebuild UI, quote widget handles its own update
+
+    def _handle_quote_width_change(self):
+        action = self.sender()
+        if action and action.isChecked():
+            new_width_key = action.data()
+            self.settings.setValue("quote_widget/width_key", new_width_key) # Save setting immediately
+            if self.quote_widget:
+                self.quote_widget.update_display_settings(width_key=new_width_key)
+            # If quote_widget is None, it will pick up the new width_key from settings upon its initialization.
 
     def _show_edit_quotes_dialog(self):
         if hasattr(self, 'quote_widget') and self.quote_widget:
