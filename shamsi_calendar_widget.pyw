@@ -80,7 +80,7 @@ class QuoteWidget(QWidget):
         layout = QVBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
 
-        default_quote = self.settings.value("quote_widget/default_quote", "اینجا یک نقل قول نمایش داده می‌شود.")
+        default_quote = self.settings.value("quote_widget/default_quote", "اینجا نقل قول نمایش داده می‌شود.")
         self.quote_label = QLabel("...") # Placeholder, updated by _update_quote_text_display
         
         # Font will be set in apply_theme using self.font_pt
