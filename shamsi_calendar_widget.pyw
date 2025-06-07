@@ -102,6 +102,7 @@ class QuoteWidget(QWidget):
         self.quotes_list = []
         self.quote_update_frequency = "daily" # Default: daily, hourly, weekly
         self.last_quote_update_timestamp = 0 # Store as timestamp
+        self.current_quote_index = self.settings.value("quote_widget/current_quote_index", 0, type=int)
 
         self.quote_timer = QTimer(self)
         self.quote_timer.timeout.connect(self._check_and_update_quote)
@@ -224,11 +225,15 @@ class QuoteWidget(QWidget):
         self.quote_label.adjustSize() # Allow label to determine its new height
         self.adjustSize() # Widget adjusts to new label height and fixed width
 
-    def set_quote_settings(self, quotes, frequency):
-        self.quotes_list = quotes if quotes else []
-        self.quote_update_frequency = frequency
-        self.settings.setValue("quote_widget/quotes_list", self.quotes_list)
-        self.settings.setValue("quote_widget/frequency", self.quote_update_frequency)
+    def set_quote_settings(self, quotes=None, frequency=None):
+        if quotes is not None:
+            self.quotes_list = quotes if quotes else []
+            self.settings.setValue("quote_widget/quotes_list", self.quotes_list)
+        
+        if frequency is not None:
+            self.quote_update_frequency = frequency
+            self.settings.setValue("quote_widget/frequency", self.quote_update_frequency)
+        
         # Force an immediate update to reflect new settings
         self._update_quote_text_display() 
         # Restart timer with potentially new interval logic (though timer interval is fixed, the check logic changes)
@@ -236,30 +241,48 @@ class QuoteWidget(QWidget):
 
     def apply_theme(self):
         if not self.parent_widget: return
+        print(f"[QuoteWidget] apply_theme: Applying theme with boxed_style = {self.boxed_style}") # Debug
         scheme = color_schemes[self.parent_widget.active_scheme_key]
 
+        # Store current visibility state
+        was_visible = self.isVisible()
+        if was_visible:
+            self.hide()
+
+        # Clear existing stylesheet
+        self.setStyleSheet("")
+        
         if self.boxed_style:
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-            bg_color = QColor(scheme.get('box_bg', scheme['widget_bg'])) 
+            bg_color = QColor(scheme.get('box_bg', scheme['widget_bg']))
             border_color = QColor(scheme.get('box_border', scheme['menu_border']))
-            self.setStyleSheet(
-                f"QWidget {{ "
-                f"background-color: {bg_color.name(QColor.NameFormat.HexArgb)}; "
-                f"border: 1px solid {border_color.name(QColor.NameFormat.HexArgb)}; "
-                f"border-radius: 6px; "
-                f"}}"
-            )
+            new_style = f"QWidget {{ background-color: {bg_color.name(QColor.NameFormat.HexArgb)}; border: 1px solid {border_color.name(QColor.NameFormat.HexArgb)}; border-radius: 6px; }}"
         else:
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            self.setStyleSheet(f"QWidget {{ background-color: transparent; border-radius: 6px; }}")
-        
+            new_style = "QWidget { background-color: transparent; border-radius: 6px; }"
+
+        # Apply widget stylesheet
+        self.setStyleSheet(new_style)
+
+        # Update label style
         label_text_color = scheme.get('box_text', scheme['widget_text'])
         self.quote_label.setStyleSheet(f"QLabel {{ color: {label_text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none; }}")
-        
+
+        # Update font
         current_label_font_size = self.font_pt - 2 if self.font_pt > 10 else self.font_pt
         current_label_font_size = max(8, current_label_font_size)
         self.quote_label.setFont(QFont(DEFAULT_FONT_FAMILY, current_label_font_size))
         
+        # Force immediate update
+        self.update()
+        self.repaint()
+        QApplication.processEvents()
+
+        # Show widget if it was visible before
+        if was_visible:
+            self.show()
+            self.raise_()
+
         self._update_quote_text_display() # Update text and apply size constraints
 
     def update_display_settings(self, font_pt=None, boxed_style=None, width_key=None):
@@ -269,6 +292,7 @@ class QuoteWidget(QWidget):
             changed = True
         if boxed_style is not None and self.boxed_style != boxed_style:
             self.boxed_style = boxed_style
+            print(f"[QuoteWidget] update_display_settings: boxed_style changed to {self.boxed_style}") # Debug
             changed = True
         if width_key is not None and self.quote_box_width_key != width_key:
             self.quote_box_width_key = width_key
@@ -276,6 +300,7 @@ class QuoteWidget(QWidget):
             changed = True
         
         if changed:
+            print(f"[QuoteWidget] update_display_settings: calling apply_theme due to changes.") # Debug
             self.apply_theme() # This will also call _update_quote_text_display
             self.save_settings() # Save if settings changed()
 
@@ -684,10 +709,31 @@ class CalendarWidget(QWidget):
     def set_color_scheme(self,k):self.active_scheme_key=k;self.settings.setValue("color_scheme",k);self.apply_theme_stylesheet();self.update_date() 
     def toggle_box(self):
         self.boxed_style = not self.boxed_style
+        print(f"[CalendarWidget] Toggling box style to: {self.boxed_style}") # Debug
         self.settings.setValue("boxed", "yes" if self.boxed_style else "no")
         self.build_ui()
+        
+        # Complete recreation of the quote widget when box style changes
         if hasattr(self, 'quote_widget') and self.quote_widget:
-            self.quote_widget.update_display_settings(boxed_style=self.boxed_style)
+            print(f"[CalendarWidget] Recreating quote_widget with boxed_style = {self.boxed_style}") # Debug
+            
+            # Save current state
+            was_visible = self.quote_widget.isVisible()
+            last_pos = self.quote_widget.pos()
+            
+            # Close the current widget
+            self.quote_widget.close()
+            self.quote_widget.deleteLater()
+            
+            # Create a new one
+            self.quote_widget = QuoteWidget(self, self.settings, self.font_pt, self.boxed_style)
+            
+            # Restore state
+            if last_pos:
+                self.quote_widget.move(last_pos)
+            if was_visible:
+                self.quote_widget.show()
+                self.quote_widget.raise_()
     def toggle_compact(self):self.compact_mode=not self.compact_mode;self.settings.setValue("compact","yes" if self.compact_mode else "no");self.build_ui() 
     def set_font_size(self, lbl):
         self.font_size_lbl = lbl
