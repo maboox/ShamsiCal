@@ -7,13 +7,18 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
 * **Multiple Calendar Systems:** Displays Jalali (primary), Gregorian, and Hijri dates.
 * **Event Display:** Shows daily events/holidays for Jalali dates (fetched from an online API).
 * **Navigation:** Easily move to the next/previous day or jump back to today.
+* **Quote Box Widget:**
+    * Movable, translucent widget displaying inspirational quotes.
+    * Configurable update frequency (hourly, daily, weekly).
+    * Full quote management system for adding, editing, and deleting quotes.
+    * Shares theme settings with the main widget.
 * **Customizable Appearance:**
     * Multiple color schemes (Dark, Light, Nordic Blue, Forest Green, Warm Amber).
-    * Toggleable "boxed" style with a 3D/beveled border effect for date elements.
-    * Five font size options.
+    * Toggleable "boxed" style with a 3D/beveled border effect for both main widget and quote box.
+    * Five font size options that apply to both widgets.
     * Compact mode for a minimalist view.
     * Hover effects on buttons for better interactivity.
-* **User Preferences:** Remembers your last used theme, style, font size, compact mode, and window position.
+* **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings, and visibility.
 * **Draggable Interface:** Frameless window that can be moved around the screen.
 * **Cross-Platform:** Built with PyQt6.
 
