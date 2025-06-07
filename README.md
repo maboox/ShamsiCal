@@ -29,8 +29,8 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git)
-    cd YOUR_REPOSITORY_NAME
+    git clone [https://github.com/maboox/ShamsiCal.git](https://github.com/maboox/ShamsiCal.git)
+    cd ShamsiCal
     ```
     *(You will replace `YOUR_USERNAME` and `YOUR_REPOSITORY_NAME` with your actual details after creating the repository on GitHub).*
 
