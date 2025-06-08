@@ -11,8 +11,11 @@ import time
 import requests
 from hijri_converter import Gregorian
 import sys
+import json
+import os
 
 DEFAULT_FONT_FAMILY = "DanaFaNum"
+EVENTS_CACHE_FILE = "events_cache.json"
 
 weekday_fa = {'Saturday':'شنبه','Sunday':'یک‌شنبه','Monday':'دوشنبه','Tuesday':'سه‌شنبه','Wednesday':'چهارشنبه','Thursday':'پنج‌شنبه','Friday':'جمعه'}
 months_fa = {'Farvardin':'فروردین','Ordibehesht':'اردیبهشت','Khordad':'خرداد','Tir':'تیر','Mordad':'مرداد','Shahrivar':'شهریور','Mehr':'مهر','Aban':'آبان','Azar':'آذر','Dey':'دی','Bahman':'بهمن','Esfand':'اسفند'}
@@ -393,6 +396,171 @@ class ManageQuotesDialog(QDialog):
 
 
 class CalendarWidget(QWidget):
+    def _fetch_and_cache_range_events(self, start_date, end_date):
+        if self.is_background_caching_busy:
+            print("Background event caching is already in progress. Skipping new request.")
+            return
+        
+        self.is_background_caching_busy = True
+        try:
+            print(f"Starting to fetch and cache events from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+            current_processing_date = start_date
+            days_processed_for_event_processing = 0
+
+            while current_processing_date <= end_date:
+                date_str = current_processing_date.strftime("%Y-%m-%d")
+                print(f"Processing {date_str}...")
+                
+                cached_events = self._load_event_from_cache(current_processing_date)
+                if cached_events is not None:
+                    print(f"  Events for {date_str} already in cache. Skipping.")
+                    current_processing_date += jdatetime.timedelta(days=1)
+                    continue
+                
+                try:
+                    url = f"https://holidayapi.ir/jalali/{current_processing_date.year}/{current_processing_date.month:02}/{current_processing_date.day:02}"
+                    response = requests.get(url, timeout=10)
+                    response.raise_for_status()
+                    data = response.json()
+                    events_list = [e["description"] for e in data.get("events", [])]
+                    self._save_event_to_cache(current_processing_date, events_list)
+                    print(f"  Fetched and cached events for {date_str}: {events_list if events_list else 'No events'}")
+                except requests.exceptions.RequestException as e:
+                    print(f"  Failed to fetch events for {date_str}: {e}. Saving as no events.")
+                    self._save_event_to_cache(current_processing_date, []) # Save empty list on error
+                except json.JSONDecodeError as e:
+                    print(f"  JSON Decode Error for {date_str}: {e}. Saving as no events.")
+                    self._save_event_to_cache(current_processing_date, [])
+                except Exception as e:
+                    print(f"  Unexpected error for {date_str}: {e}. Saving as no events.")
+                    self._save_event_to_cache(current_processing_date, [])
+                
+                time.sleep(0.1) # Be polite to the API server
+                days_processed_for_event_processing += 1
+                if days_processed_for_event_processing % 5 == 0: # Process events every 5 days or so
+                    QApplication.processEvents() # Keep UI responsive
+                
+                current_processing_date += jdatetime.timedelta(days=1)
+            
+            QApplication.processEvents() # Final process events
+            print(f"Finished fetching and caching events for the specified range.")
+        finally:
+            self.is_background_caching_busy = False
+    
+    # The following line was incorrectly part of the view of this function previously
+    # end_date = today + jdatetime.timedelta(days=days_after)
+    # self._fetch_and_cache_range_events(start_date, end_date)
+
+    def _handle_cache_surrounding_days(self, days_before=7, days_after=7):
+        """Cache events for days surrounding today (+-7 days by default)."""
+        today = jdatetime.date.today()
+        start_date = today - jdatetime.timedelta(days=days_before)
+        end_date = today + jdatetime.timedelta(days=days_after)
+        print(f"Manually triggered cache update for {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        self._fetch_and_cache_range_events(start_date, end_date)
+
+    def _fetch_and_cache_year_events(self, year):
+        print(f"Starting to fetch and cache events for Shamsi year: {year}")
+        current_day = jdatetime.date(year, 1, 1)
+        # Determine the number of days in the year (handles leap years)
+        # jdatetime.date(year, 1, 1).isleap() is the most direct way.
+        # A Shamsi year has 366 days if it's a leap year, 365 otherwise.
+        # The last month, Esfand, has 30 days in a leap year.
+        is_leap = jdatetime.date(year, 1, 1).isleap()
+        days_in_year = 366 if is_leap else 365
+        print(f"Year {year} is a leap year: {is_leap}. Days in year: {days_in_year}")
+
+        days_processed_for_event_processing = 0
+        for day_offset in range(days_in_year):
+            actual_date = jdatetime.date(year, 1, 1) + jdatetime.timedelta(days=day_offset)
+            date_str = actual_date.strftime("%Y-%m-%d")
+            print(f"Processing {date_str}...")
+
+            cached_events = self._load_event_from_cache(actual_date)
+            if cached_events is not None:
+                print(f"  Events for {date_str} already in cache. Skipping.")
+                continue
+            
+            try:
+                url = f"https://holidayapi.ir/jalali/{actual_date.year}/{actual_date.month:02}/{actual_date.day:02}"
+                response = requests.get(url, timeout=10) # Increased timeout for potentially many requests
+                response.raise_for_status()
+                data = response.json()
+                events_list = [e["description"] for e in data.get("events", [])]
+                self._save_event_to_cache(actual_date, events_list)
+                print(f"  Fetched and cached events for {date_str}: {events_list if events_list else 'No events'}")
+            except requests.exceptions.RequestException as e:
+                print(f"  Failed to fetch events for {date_str}: {e}. Saving as no events.")
+                self._save_event_to_cache(actual_date, []) # Save empty list on error to prevent re-fetching this day immediately
+            except json.JSONDecodeError as e:
+                print(f"  JSON Decode Error for {date_str}: {e}. Saving as no events.")
+                self._save_event_to_cache(actual_date, [])
+            except Exception as e:
+                print(f"  Unexpected error for {date_str}: {e}. Saving as no events.")
+                self._save_event_to_cache(actual_date, [])
+            
+            time.sleep(0.1) # Be polite to the API server
+            days_processed_for_event_processing += 1
+            if days_processed_for_event_processing % 10 == 0: # Process events every 10 days
+                QApplication.processEvents() # Keep UI responsive
+        
+        QApplication.processEvents() # Final process events
+        print(f"Finished fetching and caching events for Shamsi year: {year}")
+
+    # _handle_cache_current_year and _handle_cache_next_year are no longer used by the menu
+    # def _handle_cache_current_year(self):
+    #     current_shamsi_year = jdatetime.date.today().year
+    #     self._fetch_and_cache_year_events(current_shamsi_year)
+
+    # def _handle_cache_next_year(self):
+    #     next_shamsi_year = jdatetime.date.today().year + 1
+    #     self._fetch_and_cache_year_events(next_shamsi_year)
+    def _get_cache_file_path(self):
+        # Place cache file in the same directory as the script
+        # sys.argv[0] is the script path. If frozen with PyInstaller, sys.executable might be better.
+        # For simplicity with .pyw files run directly, os.path.dirname(__file__) is robust.
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+        except NameError: # __file__ is not defined if running in an interactive interpreter or frozen
+            script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        return os.path.join(script_dir, EVENTS_CACHE_FILE)
+
+    def _load_event_from_cache(self, j_date):
+        cache_file = self._get_cache_file_path()
+        date_str = j_date.strftime("%Y-%m-%d")
+        try:
+            if not os.path.exists(cache_file):
+                return None
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            return cache_data.get(date_str)
+        except (IOError, json.JSONDecodeError) as e:
+            print(f"Error loading from cache: {e}")
+            return None
+
+    def _save_event_to_cache(self, j_date, events_list):
+        cache_file = self._get_cache_file_path()
+        date_str = j_date.strftime("%Y-%m-%d")
+        try:
+            if not os.path.exists(os.path.dirname(cache_file)):
+                 os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+            
+            cache_data = {}
+            if os.path.exists(cache_file):
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    try:
+                        cache_data = json.load(f)
+                    except json.JSONDecodeError:
+                        # Cache is corrupt, start fresh or handle error
+                        print(f"Warning: Cache file {cache_file} is corrupt. Starting fresh.") 
+                        pass # Will overwrite with new data
+            
+            cache_data[date_str] = events_list
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, ensure_ascii=False, indent=4)
+        except IOError as e:
+            print(f"Error saving to cache: {e}")
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ویجت تقویم شمسی")
@@ -401,6 +569,23 @@ class CalendarWidget(QWidget):
         self.old_pos = None 
 
         self.settings = QSettings("MyCompany", "ShamsiCalendar")
+
+        # Ensure the cache file exists, create if not
+        try:
+            cache_path = self._get_cache_file_path()
+            if not os.path.exists(cache_path):
+                # Create directory if it doesn't exist
+                cache_dir = os.path.dirname(cache_path)
+                if cache_dir and not os.path.exists(cache_dir): # Ensure cache_dir is not empty
+                    os.makedirs(cache_dir, exist_ok=True)
+                with open(cache_path, 'w', encoding='utf-8') as f:
+                    json.dump({}, f) # Initialize with an empty JSON object
+        except IOError as e:
+            # It's possible cache_path is not defined if _get_cache_file_path() fails early
+            print(f"Warning: Could not create/initialize cache file. Error: {e}") 
+        except Exception as e:
+            print(f"Unexpected error during cache file initialization: {e}")
+
         saved_scheme_name = self.settings.value("color_scheme", "Dark")
         self.active_scheme_key = saved_scheme_name if saved_scheme_name in color_schemes else "Dark"
         self.boxed_style = self.settings.value("boxed", "yes") == "yes"
@@ -409,6 +594,7 @@ class CalendarWidget(QWidget):
         self.font_pt = font_sizes.get(self.font_size_lbl, 15)
         self.offset = 0
         self.quote_widget = None # Initialize quote_widget
+        self.is_background_caching_busy = False
 
         self.init_quote_widget() # Create/show quote widget
         self.apply_theme_stylesheet()
@@ -545,10 +731,37 @@ class CalendarWidget(QWidget):
         if hasattr(self,'compact_mode') and not self.compact_mode:
             if hasattr(self,'sub_label'): self.sub_label.setText(f"میلادی: {g.strftime('%d %B %Y')}     ⬥     قمری: {h.day} {hijri_months_fa[h.month]} {h.year}")
             if hasattr(self,'event_label'):
+                cached_events = self._load_event_from_cache(today)
+            if cached_events is not None:
+                self.event_label.setText("مناسبت: " + ", ".join(cached_events) if cached_events else "مناسبت: ---")
+            else:
                 try:
-                    url=f"https://holidayapi.ir/jalali/{today.year}/{today.month:02}/{today.day:02}"; data=requests.get(url,timeout=5).json()
-                    ev=[e["description"] for e in data.get("events",[])]; self.event_label.setText("مناسبت: "+"، ".join(ev) if ev else "مناسبت: ---")
-                except: self.event_label.setText("مناسبت: (خطا در دریافت)")
+                    url = f"https://holidayapi.ir/jalali/{today.year}/{today.month:02}/{today.day:02}"
+                    response = requests.get(url, timeout=10) # Increased timeout
+                    response.raise_for_status() # Raise an exception for HTTP errors
+                    data = response.json()
+                    ev = [e["description"] for e in data.get("events", [])]
+                    self.event_label.setText("مناسبت: " + ", ".join(ev) if ev else "مناسبت: ---")
+                    self._save_event_to_cache(today, ev)
+                    # --- Automatic background cache for surrounding days ---
+                    if not self.is_background_caching_busy:
+                        print(f"Online: Triggering background cache for {today.strftime('%Y-%m-%d')} +/- 7 days.")
+                        cache_start_date = today - jdatetime.timedelta(days=7)
+                        cache_end_date = today + jdatetime.timedelta(days=7)
+                        # This call will manage its own busy flag
+                        self._fetch_and_cache_range_events(cache_start_date, cache_end_date)
+                    else:
+                        print("Skipping automatic background cache: process already busy.")
+                except requests.exceptions.RequestException as e:
+                    # This catches network errors, timeout, HTTP errors, etc.
+                    print(f"API Request failed: {e}")
+                    self.event_label.setText("مناسبت: (آفلاین - بدون اطلاعات)")
+                except json.JSONDecodeError as e:
+                    print(f"JSON Decode Error: {e}")
+                    self.event_label.setText("مناسبت: (خطا در پاسخ API)")
+                except Exception as e: # Catch any other unexpected error during fetch
+                    print(f"Unexpected error during event fetch: {e}")
+                    self.event_label.setText("مناسبت: (خطای نامشخص)")
         
         # Style for QLabels
         label_style_str = self.get_element_style(boxed=self.boxed_style, is_button=False)
@@ -626,6 +839,14 @@ class CalendarWidget(QWidget):
             font_menu.addAction(a)
         menu.addMenu(font_menu)
 
+        menu.addSeparator()
+
+        # --- Event Cache Settings ---
+        cache_surrounding_days_action = QAction("🔄 به‌روزرسانی کش (اطراف امروز)", menu) # Text can be refined
+        cache_surrounding_days_action.setToolTip("دانلود و ذخیره مناسبت‌های ۷ روز قبل و بعد از تاریخ امروز")
+        cache_surrounding_days_action.triggered.connect(self._handle_cache_surrounding_days)
+        menu.addAction(cache_surrounding_days_action)
+        
         menu.addSeparator()
 
         # --- Quote Widget Settings Menu --- 
