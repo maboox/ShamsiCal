@@ -5,7 +5,8 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
 ## Features
 
 *   **Multiple Calendar Systems:** Displays Jalali (primary), Gregorian, and Hijri dates.
-*   **Event Display:** Shows daily events/holidays for Jalali dates (fetched from an online API).
+*   **Event Display:** Shows daily events/holidays for Jalali dates. Events are fetched from an online API and cached locally for offline access.
+*   **Offline Caching:** Automatically caches events for 7 days before and after the current date when online. A manual cache update option is also available in the settings menu to refresh this ±7 day range.
 *   **Navigation:** Easily move to the next/previous day or jump back to today.
 *   **Quote Box Widget:**
     *   Movable, translucent widget displaying inspirational quotes.
