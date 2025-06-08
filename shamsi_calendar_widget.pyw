@@ -374,45 +374,37 @@ class QuoteWidget(QWidget):
             self.save_settings()
 
     def mousePressEvent(self, e):
-        print("[QuoteWidget] mousePressEvent triggered") # DEBUG
         if e.button() == Qt.MouseButton.LeftButton:
-            print("[QuoteWidget] Left button pressed, initiating drag variables") # DEBUG
             self.old_pos = e.globalPosition().toPoint()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             self.grabMouse() # Capture all mouse events while dragging
             e.accept()
         else:
-            print(f"[QuoteWidget] mousePressEvent - button {e.button()} (not left)") # DEBUG
-            super().mousePressEvent(e) # Pass on other button presses
-
+            super().mousePressEvent(e)
+            
     def mouseMoveEvent(self, e):
-        print(f"[QuoteWidget] mouseMoveEvent raw - buttons: {e.buttons()}") # DEBUG
-        # Simplify the check - only care if left button is pressed and old_pos exists
+        # Only drag if we have old_pos set from mousePressEvent
         if hasattr(self, 'old_pos') and self.old_pos is not None:
-            print("[QuoteWidget] mouseMoveEvent - DRAGGING") # DEBUG
             delta = QPoint(e.globalPosition().toPoint() - self.old_pos)
             new_pos = self.pos() + delta
             self.move(new_pos)
             self.old_pos = e.globalPosition().toPoint()
             e.accept()
             return
-    
-        # If we get here, we're not dragging
+        
+        # If not dragging, pass to parent
         super().mouseMoveEvent(e)
-
+    
     def mouseReleaseEvent(self, e):
-        print(f"[QuoteWidget] mouseReleaseEvent triggered for button {e.button()}") # DEBUG
         if e.button() == Qt.MouseButton.LeftButton and hasattr(self, 'old_pos') and self.old_pos is not None:
-            print("[QuoteWidget] mouseReleaseEvent - Left button released, completing drag") # DEBUG
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.releaseMouse() # Release the mouse capture
             self.save_settings()
             self.old_pos = None
             e.accept()
         else:
-            print("[QuoteWidget] mouseReleaseEvent - Not a drag completion or not left button") # DEBUG
-            super().mouseReleaseEvent(e) # Pass on other button releases
-
+            super().mouseReleaseEvent(e)
+    
     def closeEvent(self, event):
         if hasattr(self, 'quote_timer') and self.quote_timer.isActive():
             self.quote_timer.stop()
@@ -693,15 +685,18 @@ class CalendarWidget(QWidget):
         if not self.quote_widget:
             self.quote_widget = QuoteWidget(self, self.settings, self.font_pt, self.boxed_style)
         
-        # Use False as default, so quote widget is initially hidden unless specifically enabled
-        quote_widget_visible = self.settings.value("quote_widget/is_visible", False, type=bool)
+        # Load the saved visibility state - default to True for better user experience
+        quote_widget_visible = self.settings.value("quote_widget/is_visible", True, type=bool)
+        
+        print(f"[CalendarWidget] Loading quote widget with saved visibility: {quote_widget_visible}")
         
         if self.quote_widget: # Ensure it was created
             if quote_widget_visible:
                 self.quote_widget.show()
+                self.quote_widget.raise_()
             else:
                 self.quote_widget.hide()
-            self.settings.setValue("quote_widget/is_visible", self.quote_widget.isVisible())
+            # The visibility state is only saved in toggle_quote_widget_visibility_action and closeEvent
 
     def apply_theme_stylesheet(self):
         scheme = color_schemes[self.active_scheme_key]
@@ -1163,8 +1158,18 @@ class CalendarWidget(QWidget):
     def closeEvent(self,e):
         self.settings.setValue("pos",self.pos())
         if hasattr(self, 'quote_widget') and self.quote_widget:
+            # Save the quote widget's position and other settings
             self.quote_widget.save_settings()
-            self.settings.setValue("quote_widget/is_visible", self.quote_widget.isVisible())
+            
+            # IMPORTANT: Don't rely on isVisible() at close time as it may be affected by window manager
+            # Instead, use the last explicitly set visibility state from settings
+            # This ensures the visibility setting persists between sessions correctly
+            current_setting = self.settings.value("quote_widget/is_visible", True, type=bool)
+            print(f"[CalendarWidget] Persisting quote widget visibility state: {current_setting}")
+            
+            # Don't save here, as we're using the current setting from storage
+            # Only toggle_quote_widget_visibility_action should modify this setting
+            
             self.quote_widget.close()
         super().closeEvent(e)
 
