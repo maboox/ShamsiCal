@@ -85,6 +85,9 @@ class QuoteWidget(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        
+        # Explicitly enable mouse tracking to receive move events even without buttons pressed
+        self.setMouseTracking(True)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
@@ -335,40 +338,80 @@ class QuoteWidget(QWidget):
 
     def update_display_settings(self, font_pt=None, boxed_style=None, width_key=None):
         changed = False
+        width_value_updated = False
+
         if font_pt is not None and self.font_pt != font_pt:
             self.font_pt = font_pt
             changed = True
+        
         if boxed_style is not None and self.boxed_style != boxed_style:
             self.boxed_style = boxed_style
-            print(f"[QuoteWidget] update_display_settings: boxed_style changed to {self.boxed_style}") # Debug
-            changed = True
-        if width_key is not None and self.quote_box_width_key != width_key:
-            self.quote_box_width_key = width_key
-            self.quote_box_width_val = quote_box_widths.get(width_key, quote_box_widths[DEFAULT_QUOTE_BOX_WIDTH_KEY])
             changed = True
         
+        if width_key is not None and self.quote_box_width_key != width_key:
+            self.quote_box_width_key = width_key
+            new_width_val = quote_box_widths.get(width_key, quote_box_widths[DEFAULT_QUOTE_BOX_WIDTH_KEY])
+            if self.quote_box_width_val != new_width_val:
+                self.quote_box_width_val = new_width_val
+                width_value_updated = True # Specifically track if the pixel value changed
+            changed = True
+    
         if changed:
-            print(f"[QuoteWidget] update_display_settings: calling apply_theme due to changes.") # Debug
-            self.apply_theme() # This will also call _update_quote_text_display
-            self.save_settings() # Save if settings changed()
+            # If the width value itself changed, we need to ensure the fixed width is set *before* 
+            # apply_theme and _update_quote_text_display try to calculate sizes.
+            if width_value_updated:
+                self.setFixedWidth(self.quote_box_width_val)
+                # The label's minimum width for wrapping will be set in _update_quote_text_display
+
+            # apply_theme will handle restyling and then call _update_quote_text_display.
+            # _update_quote_text_display will use the (potentially new) self.quote_box_width_val 
+            # to set label's minimum width, set text, and adjust sizes.
+            self.apply_theme()
+        
+            # Process events once after all changes are applied.
+            QApplication.processEvents()
+
+            self.save_settings()
 
     def mousePressEvent(self, e):
+        print("[QuoteWidget] mousePressEvent triggered") # DEBUG
         if e.button() == Qt.MouseButton.LeftButton:
+            print("[QuoteWidget] Left button pressed, initiating drag variables") # DEBUG
             self.old_pos = e.globalPosition().toPoint()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            self.grabMouse() # Capture all mouse events while dragging
             e.accept()
+        else:
+            print(f"[QuoteWidget] mousePressEvent - button {e.button()} (not left)") # DEBUG
+            super().mousePressEvent(e) # Pass on other button presses
 
     def mouseMoveEvent(self, e):
-        if e.buttons() == Qt.MouseButton.LeftButton and self.old_pos is not None:
+        print(f"[QuoteWidget] mouseMoveEvent raw - buttons: {e.buttons()}") # DEBUG
+        # Simplify the check - only care if left button is pressed and old_pos exists
+        if hasattr(self, 'old_pos') and self.old_pos is not None:
+            print("[QuoteWidget] mouseMoveEvent - DRAGGING") # DEBUG
             delta = QPoint(e.globalPosition().toPoint() - self.old_pos)
-            self.move(self.x() + delta.x(), self.y() + delta.y())
+            new_pos = self.pos() + delta
+            self.move(new_pos)
             self.old_pos = e.globalPosition().toPoint()
             e.accept()
+            return
+    
+        # If we get here, we're not dragging
+        super().mouseMoveEvent(e)
 
     def mouseReleaseEvent(self, e):
-        if e.button() == Qt.MouseButton.LeftButton and self.old_pos is not None:
-            self.save_settings() 
+        print(f"[QuoteWidget] mouseReleaseEvent triggered for button {e.button()}") # DEBUG
+        if e.button() == Qt.MouseButton.LeftButton and hasattr(self, 'old_pos') and self.old_pos is not None:
+            print("[QuoteWidget] mouseReleaseEvent - Left button released, completing drag") # DEBUG
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.releaseMouse() # Release the mouse capture
+            self.save_settings()
             self.old_pos = None
             e.accept()
+        else:
+            print("[QuoteWidget] mouseReleaseEvent - Not a drag completion or not left button") # DEBUG
+            super().mouseReleaseEvent(e) # Pass on other button releases
 
     def closeEvent(self, event):
         if hasattr(self, 'quote_timer') and self.quote_timer.isActive():
