@@ -6,21 +6,21 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
 
 *   **Multiple Calendar Systems:** Displays Jalali (primary), Gregorian, and Hijri dates.
 *   **Event Display:** Shows daily events/holidays for Jalali dates. Events are fetched from an online API and cached locally for offline access.
-*   **Offline Caching:** Automatically caches events for 7 days before and after the current date when online. A manual cache update option is also available in the settings menu to refresh this ±7 day range.
+    *   **Offline Caching:** Automatically caches events for ±7 days around the current date when an internet connection is available, ensuring events are viewable offline. A manual cache update option is also available in the settings menu to refresh this range on demand.
 *   **Navigation:** Easily move to the next/previous day or jump back to today.
 *   **Quote Box Widget:**
-    *   Movable, translucent widget displaying inspirational quotes.
+    *   Movable widget displaying inspirational quotes with proper transparency and rounded corners, ensuring it integrates smoothly with your desktop theme.
     *   Configurable update frequency (hourly, daily, weekly).
     *   Full quote management system for adding, editing, and deleting quotes.
     *   Selectable width presets (Narrow, Medium, Wide) with automatic height adjustment.
-    *   Shares theme settings with the main widget.
+    *   Shares theme settings with the main widget and updates its appearance (colors, font) in real-time when the main widget's theme is changed.
 *   **Customizable Appearance:**
     *   Multiple color schemes (Dark, Light, Nordic Blue, Forest Green, Warm Amber).
     *   Toggleable "boxed" style with a 3D/beveled border effect for both main widget and quote box.
     *   Five font size options that apply to both widgets.
     *   Compact mode for a minimalist view.
     *   Hover effects on buttons for better interactivity.
-*   **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings (including list, frequency, width), and visibility.
+    *   **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings (including list, frequency, width), and the visibility state of both the main calendar and the quote widget.
 *   **Draggable Interface:** Frameless window that can be moved around the screen.
 *   **Cross-Platform:** Built with PyQt6.
 *   **Custom Font:** You can easily change the font of the widget. Open the `shamsi_calendar_widget.pyw` file in a text editor, find the line `DEFAULT_FONT_FAMILY = "DanaFaNum"` (or similar), and replace `"DanaFaNum"` with the name of your desired font installed on your system (e.g., `"Arial"`, `"Tahoma"`).

@@ -1,9 +1,10 @@
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QMenu, QGraphicsDropShadowEffect, QInputDialog,
-    QDialog, QListWidget, QLineEdit, QDialogButtonBox, QListWidgetItem
+    QDialog, QListWidget, QLineEdit, QDialogButtonBox, QListWidgetItem,
+    QSizePolicy
 )
-from PyQt6.QtGui import QFont, QIcon, QAction, QColor, QActionGroup
+from PyQt6.QtGui import QFont, QIcon, QAction, QColor, QActionGroup, QPainter, QBrush, QPen
 from PyQt6.QtCore import Qt, QPoint, QSettings, QTimer, QDateTime # Removed QSize as it's not used
 import jdatetime
 import random
@@ -13,6 +14,7 @@ from hijri_converter import Gregorian
 import sys
 import json
 import os
+import types
 
 DEFAULT_FONT_FAMILY = "DanaFaNum"
 EVENTS_CACHE_FILE = "events_cache.json"
@@ -91,11 +93,18 @@ class QuoteWidget(QWidget):
         self.quote_label = QLabel("...") # Placeholder, updated by _update_quote_text_display
         
         # Font will be set in apply_theme using self.font_pt
-        # current_label_font_size = self.font_pt - 2 if self.font_pt > 10 else self.font_pt
-        # current_label_font_size = max(8, current_label_font_size)
-        # self.quote_label.setFont(QFont(DEFAULT_FONT_FAMILY, current_label_font_size))
         self.quote_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.quote_label.setWordWrap(True)
+        
+        # Ensure the label has a policy that expands vertically but stays fixed width
+        self.quote_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        
+        # Set word wrap mode to properly wrap words
+        self.quote_label.setTextFormat(Qt.TextFormat.RichText)
+        
+        # Set minimum width to ensure proper text wrapping
+        self.quote_label.setMinimumWidth(self.quote_box_width_val - 30)  # Account for margins
+        
         if hasattr(self.parent_widget, 'shadow'):
              self.quote_label.setGraphicsEffect(self.parent_widget.shadow())
         layout.addWidget(self.quote_label)
@@ -115,6 +124,9 @@ class QuoteWidget(QWidget):
         self.apply_theme() 
         self.load_position() 
         # self.adjustSize() # adjustSize will be called in _update_quote_text_display and apply_theme 
+    
+        # Add a delayed resize to ensure proper sizing when first shown
+        QTimer.singleShot(100, self._ensure_proper_size)
 
     def load_position(self):
         pos = self.settings.value("quote_widget/pos", None)
@@ -182,13 +194,22 @@ class QuoteWidget(QWidget):
         #     return 15 # 15 seconds 
         else: # daily or default
             return 60 * 60 * 24
+            
+    def _ensure_proper_size(self):
+        """Ensure the widget is properly sized after all layouts are calculated"""
+        self.quote_label.adjustSize()
+        self.adjustSize()
+        QApplication.processEvents()
+        # Force update after all events are processed
+        self.repaint()
 
     def _check_and_update_quote(self):
-        current_timestamp = time.time()
-        interval_seconds = self._get_interval_seconds()
-        
-        if (current_timestamp - self.last_quote_update_timestamp) >= interval_seconds:
+        current_time = time.time()
+        time_since_last_update = current_time - self.last_quote_update_timestamp
+
+        if time_since_last_update >= self._get_interval_seconds(): 
             self._update_quote_text_display()
+            QApplication.processEvents() # Process events to ensure UI updates
 
     def _update_quote_text_display(self, initial_load=False):
         current_timestamp = time.time()
@@ -222,11 +243,23 @@ class QuoteWidget(QWidget):
                 # self.settings.setValue("quote_widget/last_update_timestamp", self.last_quote_update_timestamp) # Saved by save_settings
                 # self.settings.setValue("quote_widget/current_quote_index", self.current_quote_index) # Saved by save_settings
 
+        # Set fixed width before setting text to ensure proper height calculation for wrapped text
+        self.setFixedWidth(self.quote_box_width_val)
+        
+        # Configure label for proper text wrapping
         self.quote_label.setWordWrap(True)
+        self.quote_label.setMinimumWidth(self.quote_box_width_val - 30)  # Account for margins
+        self.quote_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Set text and force proper sizing
         self.quote_label.setText(actual_quote_to_display)
-        self.setFixedWidth(self.quote_box_width_val) 
-        self.quote_label.adjustSize() # Allow label to determine its new height
-        self.adjustSize() # Widget adjusts to new label height and fixed width
+        
+        # Using sizeHint() to determine proper height
+        text_height = self.quote_label.sizeHint().height()
+        self.quote_label.setMinimumHeight(text_height)
+        
+        # Resize the widget to fit content
+        self.adjustSize()
 
     def set_quote_settings(self, quotes=None, frequency=None):
         if quotes is not None:
@@ -252,21 +285,33 @@ class QuoteWidget(QWidget):
         if was_visible:
             self.hide()
 
-        # Clear existing stylesheet
+        # Always use translucent background for proper alpha handling
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet("")
         
-        if self.boxed_style:
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-            bg_color = QColor(scheme.get('box_bg', scheme['widget_bg']))
-            border_color = QColor(scheme.get('box_border', scheme['menu_border']))
-            new_style = f"QWidget {{ background-color: {bg_color.name(QColor.NameFormat.HexArgb)}; border: 1px solid {border_color.name(QColor.NameFormat.HexArgb)}; border-radius: 6px; }}"
-        else:
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            new_style = "QWidget { background-color: transparent; border-radius: 6px; }"
-
-        # Apply widget stylesheet
-        self.setStyleSheet(new_style)
-
+        # Override paintEvent to handle background drawing
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            
+            if self.boxed_style:
+                bg_color = QColor(scheme.get('box_bg', scheme['widget_bg']))
+                border_color = QColor(scheme.get('box_border', scheme['menu_border']))
+                
+                # Draw rounded rect background with proper alpha
+                painter.setBrush(QBrush(bg_color))
+                painter.setPen(QPen(border_color, 1))
+                painter.drawRoundedRect(self.rect(), 6, 6)
+            else:
+                # Fully transparent in non-boxed mode
+                pass
+            
+            # Call the original paint event to handle children
+            super(QuoteWidget, self).paintEvent(event)
+        
+        # Replace the paintEvent method
+        self.paintEvent = types.MethodType(paintEvent, self)
+        
         # Update label style
         label_text_color = scheme.get('box_text', scheme['widget_text'])
         self.quote_label.setStyleSheet(f"QLabel {{ color: {label_text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none; }}")
@@ -605,12 +650,15 @@ class CalendarWidget(QWidget):
         if not self.quote_widget:
             self.quote_widget = QuoteWidget(self, self.settings, self.font_pt, self.boxed_style)
         
-        quote_widget_visible = self.settings.value("quote_widget/is_visible", True, type=bool)
+        # Use False as default, so quote widget is initially hidden unless specifically enabled
+        quote_widget_visible = self.settings.value("quote_widget/is_visible", False, type=bool)
+        
         if self.quote_widget: # Ensure it was created
             if quote_widget_visible:
                 self.quote_widget.show()
             else:
                 self.quote_widget.hide()
+            self.settings.setValue("quote_widget/is_visible", self.quote_widget.isVisible())
 
     def apply_theme_stylesheet(self):
         scheme = color_schemes[self.active_scheme_key]
@@ -927,7 +975,14 @@ class CalendarWidget(QWidget):
         btn_global_pos = self.top_settings_btn.mapToGlobal(QPoint(0, self.top_settings_btn.height()))
         menu.exec(btn_global_pos)
 
-    def set_color_scheme(self,k):self.active_scheme_key=k;self.settings.setValue("color_scheme",k);self.apply_theme_stylesheet();self.update_date() 
+    def set_color_scheme(self, k):
+        self.active_scheme_key = k
+        self.settings.setValue("color_scheme", k)
+        self.apply_theme_stylesheet()
+        self.update_date()
+        # Also update the quote widget if it exists
+        if hasattr(self, 'quote_widget') and self.quote_widget:
+            self.quote_widget.apply_theme()
     def toggle_box(self):
         self.boxed_style = not self.boxed_style
         print(f"[CalendarWidget] Toggling box style to: {self.boxed_style}") # Debug
