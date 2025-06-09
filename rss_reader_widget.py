@@ -53,11 +53,32 @@ class RSSReaderWidget(QWidget):
         header_layout.addWidget(self.feed_source_label)
         header_layout.addStretch()
         
+        # Moved buttons from footer to header
+        self.prev_button = QPushButton("◀️") # Changed icon
+        self.prev_button.setToolTip("مورد قبلی")
+        self.prev_button.setFixedSize(28, 28)
+        self.prev_button.clicked.connect(self.prev_item)
+        header_layout.addWidget(self.prev_button)
+
+        self.next_button = QPushButton("▶️") # Changed icon
+        self.next_button.setToolTip("مورد بعدی")
+        self.next_button.setFixedSize(28, 28)
+        self.next_button.clicked.connect(self.next_item)
+        header_layout.addWidget(self.next_button)
+
+        self.open_link_button = QPushButton("🔗") # Icon for open link
+        self.open_link_button.setToolTip("باز کردن لینک مورد") # Updated tooltip
+        self.open_link_button.setFixedSize(28,28)
+        self.open_link_button.clicked.connect(self._open_current_item_link)
+        self.open_link_button.setEnabled(False)
+        header_layout.addWidget(self.open_link_button)
+
         self.refresh_button = QPushButton("🔄") # Refresh Icon
         self.refresh_button.setToolTip("بارگذاری مجدد منبع")
         self.refresh_button.setFixedSize(28, 28)
         self.refresh_button.clicked.connect(self.refresh_current_feed)
         header_layout.addWidget(self.refresh_button)
+
         self.main_layout.addLayout(header_layout)
 
         # Content Area
@@ -80,27 +101,6 @@ class RSSReaderWidget(QWidget):
         
         self.main_layout.addWidget(self.title_label)
         self.main_layout.addWidget(self.content_scroll_area, 1) # Stretch factor for content
-
-        # Footer for Link and Navigation
-        footer_layout = QHBoxLayout()
-        self.open_link_button = QPushButton("🔗 باز کردن لینک")
-        self.open_link_button.clicked.connect(self._open_current_item_link)
-        self.open_link_button.setEnabled(False)
-        footer_layout.addWidget(self.open_link_button)
-        footer_layout.addStretch()
-
-        self.prev_button = QPushButton("⬆️") # Up arrow for previous
-        self.prev_button.setToolTip("مورد قبلی")
-        self.prev_button.setFixedSize(28, 28)
-        self.prev_button.clicked.connect(self.prev_item)
-        footer_layout.addWidget(self.prev_button)
-
-        self.next_button = QPushButton("⬇️") # Down arrow for next
-        self.next_button.setToolTip("مورد بعدی")
-        self.next_button.setFixedSize(28, 28)
-        self.next_button.clicked.connect(self.next_item)
-        footer_layout.addWidget(self.next_button)
-        self.main_layout.addLayout(footer_layout)
 
         if hasattr(self.parent_widget, 'shadow'):
             for widget in [self.title_label, self.content_label, self.feed_source_label]:
