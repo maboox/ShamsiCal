@@ -14,13 +14,23 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
     *   Full quote management system for adding, editing, and deleting quotes.
     *   Selectable width presets (Narrow, Medium, Wide) with automatic height adjustment.
     *   Shares theme settings with the main widget and updates its appearance (colors, font) in real-time when the main widget's theme is changed.
+*   **RSS Reader Widget:**
+    *   Movable and resizable widget to display news and updates from your favorite RSS feeds.
+    *   Fetches and displays RSS feed items, including title and a summary/content snippet.
+    *   Easy navigation to view previous/next items within a feed, and to cycle through different added feeds.
+    *   Link to open the full article in a web browser.
+    *   Comprehensive feed management: Add new feeds with a name and URL, edit existing ones, or delete them.
+    *   **Per-Feed Text Direction:** Select text direction (Right-to-Left or Left-to-Right) for each feed individually, ensuring correct alignment for languages like Persian and English.
+    *   Configurable display width (Narrow, Medium, Wide) with automatic height adjustment.
+    *   Seamlessly integrates with the main calendar's theme and font size settings, updating its appearance in real-time.
+    *   All feed configurations, widget position, size, current feed, and item index are saved and restored.
 *   **Customizable Appearance:**
     *   Multiple color schemes (Dark, Light, Nordic Blue, Forest Green, Warm Amber).
     *   Toggleable "boxed" style with a 3D/beveled border effect for both main widget and quote box.
     *   Five font size options that apply to both widgets.
     *   Compact mode for a minimalist view.
     *   Hover effects on buttons for better interactivity.
-    *   **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings (including list, frequency, width), and the visibility state of both the main calendar and the quote widget.
+    *   **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings (including list, frequency, width), RSS feed settings (including list, directions, width, current feed/item), and the visibility state of the main calendar, quote widget, and RSS widget.
 *   **Draggable Interface:** Frameless window that can be moved around the screen.
 *   **Cross-Platform:** Built with PyQt6.
 *   **Custom Font:** You can easily change the font of the widget. Open the `shamsi_calendar_widget.pyw` file in a text editor, find the line `DEFAULT_FONT_FAMILY = "DanaFaNum"` (or similar), and replace `"DanaFaNum"` with the name of your desired font installed on your system (e.g., `"Arial"`, `"Tahoma"`).
@@ -30,7 +40,7 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
 To use this widget, you'll need:
 
 *   Python (version 3.7 or newer).
-*   A few Python libraries: PyQt6, jdatetime, requests, hijri-converter. (Don't worry, the setup guide below will help you install these!)
+*   A few Python libraries: PyQt6, jdatetime, requests, hijri-converter, feedparser. (Don't worry, the setup guide below will help you install these!)
 
 ## Installation & Setup (First Time Users)
 

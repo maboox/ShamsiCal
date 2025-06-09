@@ -11,6 +11,7 @@ import random
 import time
 import requests
 from hijri_converter import Gregorian
+from rss_reader_widget import RSSReaderWidget, RSS_BOX_WIDTHS, DEFAULT_RSS_BOX_WIDTH_KEY, ManageRSSFeedsDialog
 import sys
 import json
 import os
@@ -699,6 +700,7 @@ class CalendarWidget(QWidget):
         self.old_pos = None 
 
         self.settings = QSettings("MyCompany", "ShamsiCalendar")
+        self.DEFAULT_FONT_FAMILY = DEFAULT_FONT_FAMILY # Make accessible for child widgets
 
         # Ensure the cache file exists, create if not
         try:
@@ -724,12 +726,28 @@ class CalendarWidget(QWidget):
         self.font_pt = font_sizes.get(self.font_size_lbl, 15)
         self.offset = 0
         self.quote_widget = None # Initialize quote_widget
+        self.rss_widget = None # Initialize rss_widget
         self.is_background_caching_busy = False
 
         self.init_quote_widget() # Create/show quote widget
+        self.init_rss_widget() # Create/show rss widget
         self.apply_theme_stylesheet()
         self.load_position() 
         self.build_ui()
+
+    def init_rss_widget(self):
+        if not self.rss_widget:
+            self.rss_widget = RSSReaderWidget(self, self.settings, self.font_pt, self.boxed_style)
+        
+        rss_widget_visible = self.settings.value("rss_widget/is_visible", False, type=bool) # Default to False
+        print(f"[CalendarWidget] Loading RSS widget with saved visibility: {rss_widget_visible}")
+        
+        if self.rss_widget:
+            if rss_widget_visible:
+                self.rss_widget.show()
+                self.rss_widget.raise_()
+            else:
+                self.rss_widget.hide()
 
     def init_quote_widget(self):
         if not self.quote_widget:
@@ -753,6 +771,8 @@ class CalendarWidget(QWidget):
         self.setStyleSheet(f"QWidget {{ background-color: {scheme['widget_bg'].name(QColor.NameFormat.HexArgb)}; color: {scheme['widget_text'].name(QColor.NameFormat.HexArgb)}; }}")
         if hasattr(self, 'quote_widget') and self.quote_widget:
             self.quote_widget.apply_theme()
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            self.rss_widget.apply_theme()
 
     def load_position(self):
         pos = self.settings.value("pos", None)
@@ -1090,7 +1110,50 @@ class CalendarWidget(QWidget):
         edit_quotes_action.triggered.connect(self._show_edit_quotes_dialog)
         quote_settings_menu.addAction(edit_quotes_action)
 
-        menu.addMenu(quote_settings_menu)
+        # --- RSS Widget Settings Menu --- 
+        rss_settings_menu = QMenu("📰 تنظیمات RSS", menu) # Changed icon for clarity
+        rss_settings_menu.setStyleSheet(menu_style)
+
+        # Toggle RSS Widget Visibility Action
+        toggle_rss_visibility_action = QAction("👁️ نمایش/مخفی کردن RSS", rss_settings_menu, checkable=True)
+        initial_visibility = False
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            initial_visibility = self.rss_widget.isVisible()
+        else: 
+            initial_visibility = self.settings.value("rss_widget/is_visible", False, type=bool)
+        toggle_rss_visibility_action.setChecked(initial_visibility)
+        toggle_rss_visibility_action.triggered.connect(self.toggle_rss_widget_visibility_action)
+        rss_settings_menu.addAction(toggle_rss_visibility_action)
+
+        # Action to manage RSS feeds
+        manage_rss_feeds_action = QAction("🔧 مدیریت منبع‌های RSS", rss_settings_menu)
+        manage_rss_feeds_action.triggered.connect(self._show_manage_rss_feeds_dialog)
+        rss_settings_menu.addAction(manage_rss_feeds_action)
+
+        # RSS Box Width Submenu
+        rss_width_menu = QMenu("عرض جعبه RSS", rss_settings_menu)
+        rss_width_menu.setStyleSheet(menu_style)
+        rss_width_group = QActionGroup(rss_width_menu)
+        rss_width_group.setExclusive(True)
+
+        current_rss_width_key = DEFAULT_RSS_BOX_WIDTH_KEY
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            current_rss_width_key = self.rss_widget.rss_box_width_key
+        else:
+            current_rss_width_key = self.settings.value("rss_widget/width_key", DEFAULT_RSS_BOX_WIDTH_KEY)
+
+        for key, width_value in RSS_BOX_WIDTHS.items():
+            action_text = f"{key.capitalize().replace('Xl', 'XL')} ({width_value}px)" # Format text like 'Small (300px)' or 'XL (600px)'
+            action = QAction(action_text, rss_width_menu, checkable=True)
+            action.setData(key)
+            if key == current_rss_width_key:
+                action.setChecked(True)
+            rss_width_group.addAction(action)
+            action.triggered.connect(self._handle_rss_box_width_change)
+            rss_width_menu.addAction(action)
+        rss_settings_menu.addMenu(rss_width_menu)
+
+        menu.addMenu(rss_settings_menu)
         menu.addSeparator()
 
         menu.addAction("❌ خروج", QApplication.instance().quit)
@@ -1105,6 +1168,13 @@ class CalendarWidget(QWidget):
         # Also update the quote widget if it exists
         if hasattr(self, 'quote_widget') and self.quote_widget:
             self.quote_widget.apply_theme()
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            self.rss_widget.apply_theme()
+
+    def get_current_color_scheme(self):
+        """Returns the currently active color scheme dictionary."""
+        return color_schemes[self.active_scheme_key]
+
     def toggle_box(self):
         self.boxed_style = not self.boxed_style
         print(f"[CalendarWidget] Toggling box style to: {self.boxed_style}") # Debug
@@ -1132,6 +1202,29 @@ class CalendarWidget(QWidget):
             if was_visible:
                 self.quote_widget.show()
                 self.quote_widget.raise_()
+
+        # Complete recreation of the rss widget when box style changes
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            print(f"[CalendarWidget] Recreating rss_widget with boxed_style = {self.boxed_style}")
+            
+            # Save current state
+            rss_was_visible = self.rss_widget.isVisible()
+            rss_last_pos = self.rss_widget.pos()
+            
+            # Close the current widget
+            self.rss_widget.close()
+            self.rss_widget.deleteLater()
+            
+            # Create a new one
+            self.rss_widget = RSSReaderWidget(self, self.settings, self.font_pt, self.boxed_style)
+            
+            # Restore state
+            if rss_last_pos:
+                self.rss_widget.move(rss_last_pos)
+            if rss_was_visible:
+                self.rss_widget.show()
+                self.rss_widget.raise_()
+
     def toggle_compact(self):self.compact_mode=not self.compact_mode;self.settings.setValue("compact","yes" if self.compact_mode else "no");self.build_ui() 
     def set_font_size(self, lbl):
         self.font_size_lbl = lbl
@@ -1139,7 +1232,9 @@ class CalendarWidget(QWidget):
         self.settings.setValue("font_size", lbl)
         self.build_ui()
         if hasattr(self, 'quote_widget') and self.quote_widget:
-            self.quote_widget.update_display_settings(font_pt=self.font_pt) 
+            self.quote_widget.update_display_settings(font_pt=self.font_pt)
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            self.rss_widget.update_display_settings(font_pt=self.font_pt) 
 
     def _handle_quote_frequency_change(self):
         action = self.sender()
@@ -1186,6 +1281,43 @@ class CalendarWidget(QWidget):
             is_now_visible = not self.quote_widget.isVisible()
             self.quote_widget.setVisible(is_now_visible)
             self.settings.setValue("quote_widget/is_visible", is_now_visible)
+
+    def _show_manage_rss_feeds_dialog(self):
+        if not hasattr(self, 'rss_widget') or not self.rss_widget:
+            self.init_rss_widget() # Ensure it's created
+            if not self.rss_widget: # Still not created, something is wrong
+                print("[CalendarWidget] Error: RSS Widget could not be initialized for managing feeds.")
+                # Optionally, show a QMessageBox to the user
+                return
+
+        current_feeds_list = list(self.rss_widget.feeds_data) # Pass a copy
+        dialog = ManageRSSFeedsDialog(current_feeds_list, self)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            updated_feeds = dialog.get_updated_feeds()
+            self.rss_widget.set_feeds(updated_feeds)
+            # No need to save to self.settings here, rss_widget.save_settings() will handle it.
+            # self.settings.setValue("rss_widget/feeds_list", updated_feeds) # This is done in rss_widget.save_settings
+            print(f"[CalendarWidget] RSS feeds updated by dialog: {updated_feeds}")
+        else:
+            print("[CalendarWidget] RSS feed management dialog cancelled.")
+
+    def _handle_rss_box_width_change(self):
+        action = self.sender()
+        if action and hasattr(self, 'rss_widget') and self.rss_widget:
+            new_width_key = action.data()
+            self.rss_widget.update_display_settings(width_key=new_width_key)
+            # self.settings.setValue("rss_widget/width_key", new_width_key) # RSSReaderWidget.save_settings() handles this now
+            print(f"[CalendarWidget] RSS widget width key set to: {new_width_key}")
+
+    def toggle_rss_widget_visibility_action(self):
+        if not hasattr(self, 'rss_widget') or not self.rss_widget:
+            self.init_rss_widget() # Ensure it's created if called early
+
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            is_now_visible = not self.rss_widget.isVisible()
+            self.rss_widget.setVisible(is_now_visible)
+            self.settings.setValue("rss_widget/is_visible", is_now_visible)
 
     def get_element_style(self, boxed, is_button=False):
         scheme = color_schemes[self.active_scheme_key]
@@ -1253,8 +1385,13 @@ class CalendarWidget(QWidget):
             
             # Don't save here, as we're using the current setting from storage
             # Only toggle_quote_widget_visibility_action should modify this setting
-            
             self.quote_widget.close()
+
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            self.rss_widget.save_settings()
+            rss_current_setting = self.settings.value("rss_widget/is_visible", False, type=bool)
+            print(f"[CalendarWidget] Persisting RSS widget visibility state: {rss_current_setting}")
+            self.rss_widget.close()
         super().closeEvent(e)
 
 if __name__ == "__main__":
