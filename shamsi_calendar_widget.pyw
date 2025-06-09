@@ -1110,6 +1110,8 @@ class CalendarWidget(QWidget):
         edit_quotes_action.triggered.connect(self._show_edit_quotes_dialog)
         quote_settings_menu.addAction(edit_quotes_action)
 
+        menu.addMenu(quote_settings_menu) # Add Quote Settings menu to main menu
+
         # --- RSS Widget Settings Menu --- 
         rss_settings_menu = QMenu("📰 تنظیمات RSS", menu) # Changed icon for clarity
         rss_settings_menu.setStyleSheet(menu_style)
