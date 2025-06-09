@@ -1,12 +1,18 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy, QScrollArea, QFrame, 
-    QLineEdit, QListWidget, QListWidgetItem, QDialogButtonBox, QDialog, QApplication, QComboBox
+    QLineEdit, QListWidget, QListWidgetItem, QDialogButtonBox, QDialog, QApplication, QComboBox,
+    QTextEdit, QMessageBox, QInputDialog
 )
+# For DeepSeek API - ensure you have 'openai' installed: pip install openai
+from openai import OpenAI
+import requests
+from newspaper import Article, ArticleException
 from PyQt6.QtGui import QFont, QColor, QDesktopServices, QAction, QPainter, QBrush, QPen
 from PyQt6.QtCore import Qt, QPoint, QSettings, QTimer, QUrl
 import feedparser
 import webbrowser
 import types
+from bs4 import BeautifulSoup
 
 # Assuming color_schemes and DEFAULT_FONT_FAMILY are accessible 
 # or will be passed/imported appropriately from the main widget.
@@ -35,6 +41,7 @@ class RSSReaderWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setMouseTracking(True)
+        self.togetherai_api_token = self.settings.value("togetherai/api_token", "")
 
         self._init_ui()
         self._load_rss_settings_and_feeds()
@@ -91,6 +98,13 @@ class RSSReaderWidget(QWidget):
         self.refresh_button.setFixedSize(28, 28)
         self.refresh_button.clicked.connect(self.refresh_current_feed)
         header_layout.addWidget(self.refresh_button)
+
+        self.summarize_button = QPushButton("✨") # Icon for Summarize/Translate
+        self.summarize_button.setToolTip("خلاصه و ترجمه خبر (Together.AI)")
+        self.summarize_button.setFixedSize(28, 28)
+        self.summarize_button.clicked.connect(self._handle_summarize_action)
+        self.summarize_button.setEnabled(False) # Initially disabled
+        header_layout.addWidget(self.summarize_button)
 
         self.main_layout.addLayout(header_layout)
 
@@ -209,6 +223,7 @@ class RSSReaderWidget(QWidget):
             self.open_link_button.setEnabled(False)
             self.prev_button.setEnabled(False)
             self.next_button.setEnabled(False)
+            self.summarize_button.setEnabled(False)
             self.prev_feed_button.setEnabled(False) # Disable feed nav if no feeds
             self.next_feed_button.setEnabled(False) # Disable feed nav if no feeds
             # Default alignment for empty state
@@ -249,6 +264,7 @@ class RSSReaderWidget(QWidget):
             self.open_link_button.setEnabled(False)
             self.prev_button.setEnabled(len(items) > 1)
             self.next_button.setEnabled(len(items) > 1)
+            self.summarize_button.setEnabled(False)
             return
 
         if not 0 <= self.current_item_index < len(items):
@@ -257,6 +273,7 @@ class RSSReaderWidget(QWidget):
                  self.title_label.setText("موردی برای نمایش نیست")
                  self.content_label.setText("")
                  self.open_link_button.setEnabled(False)
+                 self.summarize_button.setEnabled(False)
                  return
 
         item = items[self.current_item_index]
@@ -267,6 +284,7 @@ class RSSReaderWidget(QWidget):
         self.title_label.setText(title)
         self.content_label.setText(summary)
         self.open_link_button.setEnabled(bool(link))
+        self.summarize_button.setEnabled(bool(summary)) # Enable if there's summary content
 
         self.prev_button.setEnabled(len(items) > 1)
         self.next_button.setEnabled(len(items) > 1)
@@ -476,9 +494,175 @@ class RSSReaderWidget(QWidget):
         self.save_settings()
         super().closeEvent(event)
 
+    def _fetch_and_extract_article_text(self, url):
+        try:
+            # Configure the article object, disable memoization for fresh fetches if needed
+            # Newspaper3k uses requests internally, so User-Agent might be set by its defaults
+            # or can be configured if necessary.
+            article = Article(url, language='en') # Specify language if known, helps with parsing
+            article.download()
+            article.parse()
+            
+            # article.nlp() # Uncomment this if you want to use NLP features like keywords (requires nltk data)
+            
+            print(f"[Newspaper3k] Extracted text length for {url}: {len(article.text if article.text else '')}")
+
+            if not article.text or article.text.strip() == "":
+                # Fallback to basic BeautifulSoup extraction if newspaper3k fails to get text
+                print(f"Newspaper3k failed to extract text from {url}. Falling back to manual parsing.")
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+                response = requests.get(url, headers=headers, timeout=15)
+                response.raise_for_status()
+                try:
+                    html_content = response.content.decode('utf-8')
+                except UnicodeDecodeError:
+                    html_content = response.text
+                soup = BeautifulSoup(html_content, 'html.parser')
+                for script_or_style in soup(['script', 'style']):
+                    script_or_style.decompose()
+                text = soup.get_text(separator='\n', strip=True)
+                if not text or text.strip() == "":
+                     return None, "محتوای قابل استخراجی از لینک یافت نشد (حتی با روش جایگزین)."
+                return text.strip(), None
+
+            return article.text.strip(), None
+        except ArticleException as e:
+            print(f"Newspaper3k ArticleException for URL {url}: {e}")
+            return None, f"خطا در پردازش مقاله با کتابخانه newspaper3k: {e}"
+        except requests.exceptions.Timeout:
+            print(f"Timeout fetching URL {url}")
+            return None, f"خطا: زمان درخواست از لینک {url} به پایان رسید."
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching URL {url} (requests): {e}")
+            return None, f"خطای شبکه هنگام دسترسی به لینک: {e}"
+        except Exception as e:
+            print(f"Unexpected error processing URL {url}: {e}")
+            return None, f"خطا در پردازش محتوای لینک: {e}"
+
+    def _handle_summarize_action(self):
+        if not self.feeds_data or self.current_feed_index >= len(self.feeds_data):
+            return
+        current_feed_data = self.feeds_data[self.current_feed_index]
+        items = current_feed_data.get('items', [])
+        if not items or not (0 <= self.current_item_index < len(items)):
+            return
+
+        # API Token Check
+        if not self.togetherai_api_token and self.settings:
+            self.togetherai_api_token = self.settings.value("togetherai/api_token", "")
+
+        if not self.togetherai_api_token:
+            token, ok = QInputDialog.getText(self,
+                                             "کلید API Together.AI",
+                                             "کلید API برای Together.AI تنظیم نشده است. لطفاً آن را وارد کنید:",
+                                             QLineEdit.EchoMode.Password)
+            if ok and token:
+                self.togetherai_api_token = token
+                if self.settings:
+                    self.settings.setValue("togetherai/api_token", token)
+                    print("[RSSReaderWidget] Together.AI API Token saved to settings.")
+                else:
+                    QMessageBox.warning(self, "خطا در ذخیره سازی", "امکان ذخیره کلید API وجود ندارد (settings object missing).")
+            else:
+                QMessageBox.warning(self, "عملیات لغو شد", "کلید API برای ادامه کار ضروری است.")
+                return
+
+        item = items[self.current_item_index]
+        article_url = item.get('link')
+
+        if not article_url:
+            QMessageBox.information(self, "لینک موجود نیست", "لینکی برای این خبر جهت دریافت متن کامل وجود ندارد.")
+            return
+
+        # Fetch and extract text from the URL
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        full_article_text, error_fetch = self._fetch_and_extract_article_text(article_url)
+        QApplication.restoreOverrideCursor()
+
+        if error_fetch:
+            QMessageBox.warning(self, "خطا در دریافت محتوا", f"هنگام دریافت محتوای کامل از لینک خطایی رخ داد:\n{error_fetch}")
+            return
+
+        if not full_article_text:
+            QMessageBox.information(self, "محتوا موجود نیست", "محتوایی برای خلاصه سازی یا ترجمه از لینک خبر یافت نشد.")
+            return
+
+        display_original_content = (full_article_text[:700] + '...') if len(full_article_text) > 700 else full_article_text
+
+        summary_prompt = "Summarize the following text very concisely, focusing on the main points. The summary should be in the same language as the input text (which could be multilingual)."
+        
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        llm_summary, error_summary = self._call_llm_api(full_article_text, summary_prompt)
+        QApplication.restoreOverrideCursor()
+
+        if error_summary:
+            QMessageBox.warning(self, "خطا در خلاصه سازی", f"هنگام خلاصه سازی متن کامل خطایی رخ داد: {error_summary}")
+            # llm_summary will be None, dialog will show error message for summary
+
+        persian_translation_prompt = "Translate the following summary to Persian. If the summary is already in Persian, return it as is."
+        llm_translation = None
+        error_translation_msg = None
+
+        if llm_summary: # Only translate if summarization was successful
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            llm_translation, error_translation_api = self._call_llm_api(llm_summary, persian_translation_prompt)
+            QApplication.restoreOverrideCursor()
+            if error_translation_api:
+                error_translation_msg = f"هنگام ترجمه خلاصه به فارسی خطایی رخ داد: {error_translation_api}"
+                QMessageBox.warning(self, "خطا در ترجمه", error_translation_msg)
+        else: 
+            error_translation_msg = "خلاصه سازی ناموفق بود، بنابراین ترجمه انجام نشد."
+
+        llm_summary_display = llm_summary if llm_summary is not None else "خطا در دریافت خلاصه."
+        llm_translation_display = llm_translation if llm_translation is not None else ("خطا در دریافت ترجمه." + (f" ({error_translation_msg.split(':')[-1].strip()})" if error_translation_msg else "") )
+        
+        dialog = SummarizeTranslateDialog(display_original_content, llm_summary_display, llm_translation_display, self)
+        dialog.exec()
+
+    # Placeholder for the actual API call logic
+    def _call_llm_api(self, text_to_process, task_prompt):
+        if not self.togetherai_api_token:
+            # This should ideally be checked before calling
+            print("Together.AI API token is missing.")
+            return None, "کلید API برای Together.AI تنظیم نشده یا نامعتبر است."
+        
+        try:
+            client = OpenAI(api_key=self.togetherai_api_token, base_url="https://api.together.xyz/v1")
+            response = client.chat.completions.create(
+                model="mistralai/Mistral-7B-Instruct-v0.2", # Or another cost-effective model from Together.AI # Or other suitable model
+                messages=[
+                    {"role": "system", "content": task_prompt},
+                    {"role": "user", "content": text_to_process},
+                ],
+                stream=False
+            )
+            return response.choices[0].message.content, None
+        except Exception as e:
+            print(f"Error calling Together.AI API: {e}")
+            return None, str(e)
+
 
 class ManageRSSFeedsDialog(QDialog):
     def __init__(self, current_feeds, parent=None):
+        # parent is expected to be CalendarWidget, which has self.settings
+        # If parent is None or doesn't have settings, this will need adjustment
+        # or settings should be passed directly.
+        # For now, assuming parent is CalendarWidget as per _show_manage_rss_feeds_dialog
+        self.settings = None
+        if parent and hasattr(parent, 'settings'):
+            self.settings = parent.settings
+        else:
+            # Fallback or error handling if settings are not available
+            # This might happen if the dialog is instantiated differently elsewhere.
+            # A more robust solution might be to pass settings explicitly.
+            print("Warning: ManageRSSFeedsDialog initialized without access to QSettings.")
+            # As a minimal fallback, create a temporary QSettings object for this scope
+            # This won't persist globally but allows the dialog to function without erroring immediately.
+            # The user should ensure settings are passed correctly for persistence.
+            # self.settings = QSettings("YourOrg", "YourApp") # Placeholder if you need it to run standalone
+            pass # Or raise an error, or disable API key field
         super().__init__(parent)
         self.setWindowTitle("مدیریت منبع‌های RSS")
         self.setMinimumWidth(500)
@@ -498,6 +682,17 @@ class ManageRSSFeedsDialog(QDialog):
             self.feeds_list_widget.addItem(list_item)
         self.feeds_list_widget.itemDoubleClicked.connect(self._edit_selected_feed)
         layout.addWidget(self.feeds_list_widget)
+
+        # DeepSeek API Token Input
+        if self.settings: # Only add if settings are available
+            api_token_layout = QHBoxLayout()
+            api_token_label = QLabel("کلید API برای Together.AI:")
+            self.api_token_input = QLineEdit()
+            self.api_token_input.setPlaceholderText("اختیاری: کلید API خود را اینجا وارد کنید")
+            self.api_token_input.setText(self.settings.value("togetherai/api_token", ""))
+            api_token_layout.addWidget(api_token_label)
+            api_token_layout.addWidget(self.api_token_input)
+            layout.addLayout(api_token_layout)
 
         # Buttons for Add/Delete
         buttons_layout = QHBoxLayout()
@@ -623,6 +818,14 @@ class ManageRSSFeedsDialog(QDialog):
 
     def accept(self):
         # Called when OK or equivalent is clicked. Data should be finalized here or retrieved by caller.
+        if self.settings and hasattr(self, 'api_token_input'): # Save API token if field exists and settings available
+            self.settings.setValue("togetherai/api_token", self.api_token_input.text())
+            # Update the token in the RSSReaderWidget instance if possible/needed immediately
+            # This assumes the parent passed to this dialog is the CalendarWidget, which has rss_widget
+            if self.parent() and hasattr(self.parent(), 'rss_widget') and self.parent().rss_widget:
+                self.parent().rss_widget.togetherai_api_token = self.api_token_input.text()
+                print("[ManageRSSFeedsDialog] Together.AI API Token updated in RSSReaderWidget.")
+
         # We will reconstruct the list from the widget items in get_updated_feeds, 
         # so no specific action needed here other than calling super.
         super().accept()
@@ -630,3 +833,45 @@ class ManageRSSFeedsDialog(QDialog):
     def reject(self):
         # Called when Cancel or equivalent is clicked.
         super().reject()
+
+
+class SummarizeTranslateDialog(QDialog):
+    def __init__(self, original_text, summary_text, translated_text, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("خلاصه و ترجمه خبر")
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(400)
+
+        layout = QVBoxLayout(self)
+
+        # Original Text
+        original_label = QLabel("متن اصلی:")
+        self.original_text_edit = QTextEdit()
+        self.original_text_edit.setPlainText(original_text)
+        self.original_text_edit.setReadOnly(True)
+        self.original_text_edit.setFixedHeight(100) # Adjust as needed
+        layout.addWidget(original_label)
+        layout.addWidget(self.original_text_edit)
+
+        # Summary Text
+        summary_label = QLabel("خلاصه:")
+        self.summary_text_edit = QTextEdit()
+        self.summary_text_edit.setPlainText(summary_text or "خلاصه سازی انجام نشد یا خطایی رخ داد.")
+        self.summary_text_edit.setReadOnly(True)
+        layout.addWidget(summary_label)
+        layout.addWidget(self.summary_text_edit)
+
+        # Translated Text
+        translated_label = QLabel("ترجمه (فارسی):")
+        self.translated_text_edit = QTextEdit()
+        self.translated_text_edit.setPlainText(translated_text or "ترجمه انجام نشد یا خطایی رخ داد.")
+        self.translated_text_edit.setReadOnly(True)
+        layout.addWidget(translated_label)
+        layout.addWidget(self.translated_text_edit)
+
+        # Dialog Buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        button_box.accepted.connect(self.accept)
+        layout.addWidget(button_box)
+
+        self.setLayout(layout)
