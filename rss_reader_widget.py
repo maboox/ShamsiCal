@@ -32,7 +32,7 @@ class RSSReaderWidget(QWidget):
 
         self.setWindowTitle("منبع خوان RSS")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setMouseTracking(True)
 
@@ -115,7 +115,8 @@ class RSSReaderWidget(QWidget):
         self.main_layout.addWidget(self.title_label)
         self.main_layout.addWidget(self.content_scroll_area, 1) # Stretch factor for content
 
-        if hasattr(self.parent_widget, 'shadow'):
+        # Only apply shadows if we're not in boxed mode
+        if not self.boxed_style and hasattr(self.parent_widget, 'shadow'):
             for widget in [self.title_label, self.content_label, self.feed_source_label]:
                 widget.setGraphicsEffect(self.parent_widget.shadow())
         
@@ -364,13 +365,25 @@ class RSSReaderWidget(QWidget):
                 pass # Transparent in non-boxed
             super(RSSReaderWidget, self).paintEvent(event)
         self.paintEvent = types.MethodType(paintEvent, self)
-
-        # Style UI elements
-        text_color = scheme.get('box_text', scheme['widget_text'])
-        style_sheet_parts = []
-        for widget in [self.feed_source_label, self.title_label, self.content_label]:
-            widget.setStyleSheet(f"color: {text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none;")
         
+        # Style UI elements
+        text_color = scheme.get('box_text' if self.boxed_style else 'widget_text', scheme['widget_text'])
+        
+        # Style labels based on boxed mode
+        if self.boxed_style:
+            # In boxed mode, make all content containers and labels transparent
+            for widget in [self.feed_source_label, self.title_label, self.content_label]:
+                widget.setStyleSheet(f"color: {text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none; padding: 0px;")
+        else:
+            # In non-boxed mode, ensure labels have transparent backgrounds
+            for widget in [self.feed_source_label, self.title_label, self.content_label]:
+                widget.setStyleSheet(f"color: {text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none;")
+        
+        # Always make scroll areas transparent
+        self.content_scroll_area.setStyleSheet("background-color: transparent; border: none;")
+        self.content_scroll_area.viewport().setStyleSheet("background-color: transparent;")
+        
+        # Apply font sizes
         font_size_title = self.font_pt
         font_size_content = self.font_pt - 2 if self.font_pt > 10 else self.font_pt
         font_size_source = self.font_pt - 3 if self.font_pt > 11 else max(8, self.font_pt -2)
@@ -381,10 +394,10 @@ class RSSReaderWidget(QWidget):
 
         # Style buttons (using parent's get_element_style method)
         if hasattr(self.parent_widget, 'get_element_style'):
-            btn_style = self.parent_widget.get_element_style(boxed=self.boxed_style, is_button=True)
-            for btn in [self.refresh_button, self.prev_button, self.next_button, self.open_link_button]:
+            btn_style = self.parent_widget.get_element_style(element_should_have_own_box=self.boxed_style, is_button=True)
+            for btn in [self.refresh_button, self.prev_button, self.next_button, self.open_link_button, self.prev_feed_button, self.next_feed_button]:
                 btn.setStyleSheet(btn_style)
-        
+    
         self.update()
         self.repaint()
         QApplication.processEvents()
