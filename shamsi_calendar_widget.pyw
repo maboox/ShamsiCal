@@ -800,8 +800,9 @@ class CalendarWidget(QWidget):
             self.rss_widget.apply_theme()
 
     def load_position(self):
-        pos = self.settings.value("pos", None)
-        if pos: self.move(pos)
+        geometry = self.settings.value("geometry", None)
+        if geometry:
+            self.restoreGeometry(geometry)
 
     def _clear_layout_widgets(self, layout):
         if layout is None: return

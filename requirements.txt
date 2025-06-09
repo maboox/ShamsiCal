@@ -3,3 +3,7 @@ jdatetime>=4.0.0
 requests>=2.20.0
 hijri-converter>=2.2.0
 feedparser>=5.2.1
+openai>=1.0.0
+beautifulsoup4>=4.9.0
+newspaper3k>=0.2.8
+lxml[html_clean]>=4.5.0

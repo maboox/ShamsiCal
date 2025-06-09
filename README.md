@@ -1,8 +1,13 @@
-# PyQt Shamsi Windows Calendar Widget
+# Persian Desktop Widgets
 
-A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, and Hijri dates with daily events. Built with Python and PyQt6.
+A suite of customizable desktop widgets including a multi-calendar display (Jalali, Gregorian, Hijri) with events, a quote display, and an RSS feed reader with AI-powered summarization and translation. Built with Python and PyQt6.
 
 ## Features
+
+*   **AI-Powered RSS Summarization & Translation (via Together.AI):**
+    *   Summarize full article content fetched from RSS item links using advanced AI models.
+    *   Translate the generated summary into Persian.
+    *   Requires a Together.AI API key (see setup instructions below).
 
 *   **Multiple Calendar Systems:** Displays Jalali (primary), Gregorian, and Hijri dates.
 *   **Event Display:** Shows daily events/holidays for Jalali dates. Events are fetched from an online API and cached locally for offline access.
@@ -30,7 +35,7 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
     *   Five font size options that apply to both widgets.
     *   Compact mode for a minimalist view.
     *   Hover effects on buttons for better interactivity.
-    *   **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings (including list, frequency, width), RSS feed settings (including list, directions, width, current feed/item), and the visibility state of the main calendar, quote widget, and RSS widget.
+    *   **User Preferences:** Remembers your last used theme, style, font size, compact mode, window positions, quote settings (including list, frequency, width), RSS feed settings (including list, directions, width, current feed/item, Together.AI API token), and the visibility state of the main calendar, quote widget, and RSS widget.
 *   **Draggable Interface:** Frameless window that can be moved around the screen.
 *   **Cross-Platform:** Built with PyQt6.
 *   **Custom Font:** You can easily change the font of the widget. Open the `shamsi_calendar_widget.pyw` file in a text editor, find the line `DEFAULT_FONT_FAMILY = "DanaFaNum"` (or similar), and replace `"DanaFaNum"` with the name of your desired font installed on your system (e.g., `"Arial"`, `"Tahoma"`).
@@ -40,11 +45,11 @@ A customizable desktop calendar widget, displaying Jalali (Shamsi), Gregorian, a
 To use this widget, you'll need:
 
 *   Python (version 3.7 or newer).
-*   A few Python libraries: PyQt6, jdatetime, requests, hijri-converter, feedparser. (Don't worry, the setup guide below will help you install these!)
+*   Python libraries: `PyQt6`, `jdatetime`, `requests`, `hijri-converter`, `feedparser`, `openai`, `beautifulsoup4`, `newspaper3k`, `lxml[html_clean]`. (The setup guide below will help you install these!)
 
 ## Installation & Setup (First Time Users)
 
-Welcome! To get the Shamsi Calendar widget running on your computer, follow these steps.
+Welcome! To get the Persian Desktop Widgets running on your computer, follow these steps.
 
 **Step 1: Get the Application Files**
 
@@ -90,11 +95,22 @@ You have two main ways to get the files:
 
 You're all set up! Now you can run the application.
 
+## Setting up AI Features (Together.AI API Key)
+
+The RSS summarization and translation feature uses the Together.AI API. To use this feature, you'll need a free or paid API key from Together.AI.
+
+1.  **Create an Account:** Go to [https://www.together.ai/](https://www.together.ai/) and sign up.
+2.  **Get API Key:** Once logged in, navigate to your account settings or API keys section (usually found by clicking your profile icon or an "API Keys" link in the dashboard).
+3.  **Generate Key:** Create a new API key. Make sure to copy it somewhere safe immediately, as it might not be shown again.
+4.  **Add Key to Application:** When you first try to use the summarize/translate feature in the RSS widget, the application will prompt you to enter your Together.AI API key. You can also add or update it later via the "Manage RSS Feeds" dialog (accessible from the RSS widget's settings menu).
+
+**Note:** Your API key is stored locally in the application's settings and is not shared elsewhere.
+
 ## Running the Application
 
 1.  Open your terminal (Command Prompt, PowerShell, etc.).
 2.  Make sure you are in the `ShamsiCal` directory where you put the application files. (If you just finished the setup steps, your terminal should still be in this directory. If not, use the `cd` command to navigate to it, e.g., `cd C:\Users\YourName\Desktop\ShamsiCal`).
-3.  To start the Shamsi Calendar widget, run the following command:
+3.  To start the Persian Desktop Widgets, run the following command:
     ```bash
     python shamsi_calendar_widget.pyw
     ```
@@ -102,7 +118,7 @@ You're all set up! Now you can run the application.
 
 ## Updating the Application (For Existing Users)
 
-If you've previously installed ShamsiCal and want to get the latest features and fixes:
+If you've previously installed the widgets and want to get the latest features and fixes:
 
 *   **If you used Git to get the files (Option A during setup):**
     1.  Open a terminal.
