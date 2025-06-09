@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QDialog, QListWidget, QLineEdit, QDialogButtonBox, QListWidgetItem,
     QSizePolicy, QStyle
 )
-from PyQt6.QtGui import QFont, QIcon, QAction, QColor, QActionGroup, QPainter, QBrush, QPen
+from PyQt6.QtGui import QFont, QIcon, QAction, QColor, QActionGroup, QPainter, QBrush, QPen, QMouseEvent, QContextMenuEvent, QPaintEvent
 from PyQt6.QtCore import Qt, QPoint, QSettings, QTimer, QDateTime # Removed QSize as it's not used
 import jdatetime
 import random
@@ -29,41 +29,46 @@ color_schemes = {
         'name_fa': 'تیره', 'widget_bg': QColor(30,30,30,210), 'widget_text': QColor("white"),
         'box_bg': QColor(50,50,50,200), 'box_text': QColor(220,220,220), 'box_border': QColor(80,80,80),
         'box_bg_hover': QColor(70,70,70,210), # Hover for boxed buttons
-        'flat_hover_bg': QColor(255,255,255,25), # Hover for flat (non-boxed) buttons
-        'menu_bg': QColor(45,45,45,245), 'menu_text': QColor(220,220,220), 'menu_border': QColor(60,60,60),
-        'menu_selected_bg': QColor(0,120,215), 'menu_selected_text': QColor("white"),
+        'flat_hover_bg': QColor(70,70,70,100), # Subtle hover for flat buttons/elements
+        'flat_element_hover_bg': QColor(80,80,80,120), # Hover for flat elements inside a boxed parent
+        'menu_bg': QColor(45,45,45,240), 'menu_text': QColor(220,220,220), 'menu_border': QColor(60,60,60), 
+        'menu_selected_bg': QColor(0, 120, 215, 200), 'menu_selected_text': QColor("white"),
     },
     'Light': {
         'name_fa': 'روشن', 'widget_bg': QColor(245,245,245,220), 'widget_text': QColor("black"),
         'box_bg': QColor(220,220,220,200), 'box_text': QColor(40,40,40), 'box_border': QColor(180,180,180),
-        'box_bg_hover': QColor(205,205,205,210),
-        'flat_hover_bg': QColor(0,0,0,20),
-        'menu_bg': QColor(245,245,245,245), 'menu_text': QColor(30,30,30), 'menu_border': QColor(200,200,200),
-        'menu_selected_bg': QColor(0,120,215), 'menu_selected_text': QColor("white"),
+        'box_bg_hover': QColor(220,220,220,210),
+        'flat_hover_bg': QColor(200,200,200,100),
+        'flat_element_hover_bg': QColor(190,190,190,120), # Hover for flat elements inside a boxed parent
+        'menu_bg': QColor(240,240,240,240), 'menu_text': QColor(30,30,30), 'menu_border': QColor(200,200,200),
+        'menu_selected_bg': QColor(0, 120, 215, 200), 'menu_selected_text': QColor("white"),
     },
     'Nordic Blue': {
         'name_fa':'آبی نوردیک','widget_bg':QColor(46,52,64,225),'widget_text':QColor(216,222,233),
         'box_bg':QColor(59,66,82,210),'box_text':QColor(229,233,240),'box_border':QColor(76,86,106),
         'box_bg_hover':QColor(76,86,106,220),
-        'flat_hover_bg':QColor(216,222,233,25),
+        'flat_hover_bg':QColor(70,80,100,100),
+        'flat_element_hover_bg': QColor(80,90,110,120), # Hover for flat elements inside a boxed parent
         'menu_bg':QColor(59,66,82,245),'menu_text':QColor(216,222,233),'menu_border':QColor(76,86,106),
-        'menu_selected_bg':QColor(94,129,172),'menu_selected_text':QColor(230,230,230),
+        'menu_selected_bg':QColor(94,129,172,200),'menu_selected_text':QColor(230,230,230),
     },
     'Forest Green': {
         'name_fa':'سبز جنگلی','widget_bg':QColor(42,72,46,225),'widget_text':QColor(210,203,185),
         'box_bg':QColor(52,82,56,210),'box_text':QColor(210,203,185),'box_border':QColor(80,110,80),
         'box_bg_hover':QColor(62,92,66,220),
-        'flat_hover_bg':QColor(210,203,185,25),
+        'flat_hover_bg':QColor(60,90,80,100),
+        'flat_element_hover_bg': QColor(70,100,90,120), # Hover for flat elements inside a boxed parent
         'menu_bg':QColor(52,82,56,245),'menu_text':QColor(210,203,185),'menu_border':QColor(80,110,80),
-        'menu_selected_bg':QColor(100,130,100),'menu_selected_text':QColor(230,230,230),
+        'menu_selected_bg':QColor(100,130,100,200),'menu_selected_text':QColor(230,230,230),
     },
     'Warm Amber': {
         'name_fa':'کهربایی گرم','widget_bg':QColor(70,40,0,225),'widget_text':QColor(255,210,150),
         'box_bg':QColor(80,50,10,210),'box_text':QColor(255,220,180),'box_border':QColor(120,80,40),
         'box_bg_hover':QColor(100,70,30,220),
-        'flat_hover_bg':QColor(255,210,150,25),
+        'flat_hover_bg':QColor(90,60,30,100),
+        'flat_element_hover_bg': QColor(110,80,50,120), # Hover for flat elements inside a boxed parent
         'menu_bg':QColor(80,50,10,245),'menu_text':QColor(255,210,150),'menu_border':QColor(120,80,40),
-        'menu_selected_bg':QColor(200,120,50),'menu_selected_text':QColor(255,230,200),
+        'menu_selected_bg':QColor(200,120,50,200),'menu_selected_text':QColor(255,230,200),
     }
 }
 font_sizes = {'خیلی کوچک':8,'کوچک':10,'متوسط':15,'بزرگ':20,'خیلی بزرگ':24}
@@ -84,7 +89,7 @@ class QuoteWidget(QWidget):
         self.setWindowTitle("جعبه نقل قول")
         # Removed Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         
         # Explicitly enable mouse tracking to receive move events even without buttons pressed
@@ -318,7 +323,7 @@ class QuoteWidget(QWidget):
         
         # Update label style
         label_text_color = scheme.get('box_text', scheme['widget_text'])
-        self.quote_label.setStyleSheet(f"QLabel {{ color: {label_text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none; }}")
+        self.quote_label.setStyleSheet(f"QLabel {{ color: {label_text_color.name(QColor.NameFormat.HexArgb)}; background-color: transparent; border: none; padding: 0px; }}")
 
         # Update font
         current_label_font_size = self.font_pt - 2 if self.font_pt > 10 else self.font_pt
@@ -528,7 +533,6 @@ class CalendarWidget(QWidget):
                     self._save_event_to_cache(current_processing_date, [])
                 except Exception as e:
                     print(f"  Unexpected error for {date_str}: {e}. Saving as no events.")
-                    self._save_event_to_cache(current_processing_date, [])
                 
                 time.sleep(0.1) # Be polite to the API server
                 days_processed_for_event_processing += 1
@@ -696,7 +700,7 @@ class CalendarWidget(QWidget):
         super().__init__()
         self.setWindowTitle("ویجت تقویم شمسی")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.old_pos = None 
 
         self.settings = QSettings("MyCompany", "ShamsiCalendar")
@@ -734,6 +738,27 @@ class CalendarWidget(QWidget):
         self.apply_theme_stylesheet()
         self.load_position() 
         self.build_ui()
+
+    def paintEvent(self, event: QPaintEvent):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        scheme = self.get_current_color_scheme()
+
+        if self.boxed_style:
+            # Use box_bg for the main calendar widget background in boxed_style
+            bg_color = QColor(scheme.get('box_bg', scheme['widget_bg'])) 
+            border_color = QColor(scheme.get('box_border', scheme['menu_border']))
+            
+            painter.setBrush(QBrush(bg_color))
+            painter.setPen(QPen(border_color, 1))
+            painter.drawRoundedRect(self.rect(), 8, 8) # Using a slightly larger radius for main widget
+        else:
+            # In non-boxed mode, rely on WA_TranslucentBackground and stylesheet for widget_bg
+            # Or, explicitly fill with widget_bg if full transparency isn't desired
+            # For now, let's assume stylesheet handles it or it's fully transparent
+            pass
+        
+        super().paintEvent(event) # Call super for children
 
     def init_rss_widget(self):
         if not self.rss_widget:
@@ -799,42 +824,23 @@ class CalendarWidget(QWidget):
         secondary_font_size = self.font_pt - 2 if self.font_pt > 10 else (self.font_pt - 1 if self.font_pt > 8 else self.font_pt)
         secondary_font_size = max(8, secondary_font_size) 
 
-        top_right_layout = QHBoxLayout()
-        top_right_layout.addStretch(1)
-
-        # Today Icon Button
-        self.today_icon_btn = QPushButton()
-        self.today_icon_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
-        self.today_icon_btn.setToolTip("بازگشت به امروز")
-        self.today_icon_btn.setFixedSize(26, 26)
-        self.today_icon_btn.setFlat(True)
-        # Hover style for icon buttons will be set in update_date like settings button
-        self.today_icon_btn.clicked.connect(self.reset_today)
-        top_right_layout.addWidget(self.today_icon_btn)
-
-        # Center Window Icon Button
-        self.center_icon_btn = QPushButton()
-        self.center_icon_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
-        self.center_icon_btn.setToolTip("مرکز صفحه")
-        self.center_icon_btn.setFixedSize(26, 26)
-        self.center_icon_btn.setFlat(True)
-        self.center_icon_btn.clicked.connect(self.center_widget_action)
-        top_right_layout.addWidget(self.center_icon_btn)
-        
-        # Settings Button (existing)
-        self.top_settings_btn = QPushButton("⚙️") # Using a gear character
-        settings_icon_font_size = max(10, int(self.font_pt * 0.8))
-        self.top_settings_btn.setFont(QFont(DEFAULT_FONT_FAMILY, settings_icon_font_size))
-        self.top_settings_btn.setFixedSize(26, 26)
-        self.top_settings_btn.setFlat(True)
-        self.top_settings_btn.clicked.connect(self.show_settings_menu)
-        top_right_layout.addWidget(self.top_settings_btn)
-        main_layout.addLayout(top_right_layout)
+    # Top buttons (settings, today, center) have been removed and replaced by a context menu.
 
         self.date_label = QLabel()
         self.date_label.setFont(QFont(DEFAULT_FONT_FAMILY, self.font_pt))
         self.date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.date_label.setGraphicsEffect(self.shadow())
+        
+        scheme = self.get_current_color_scheme()
+        if self.boxed_style:
+            # Boxed mode: transparent bg, box_text color, no shadow
+            label_style = f"background-color: transparent; color: {scheme['box_text'].name(QColor.NameFormat.HexArgb)}; padding: 0px;"
+            self.date_label.setStyleSheet(label_style)
+            self.date_label.setGraphicsEffect(None) # Explicitly remove shadow
+        else:
+            # Non-boxed mode: transparent bg, widget_text color, with shadow
+            label_style = f"background-color: transparent; color: {scheme['widget_text'].name(QColor.NameFormat.HexArgb)}; padding: 0px;"
+            self.date_label.setStyleSheet(label_style)
+            self.date_label.setGraphicsEffect(self.shadow())
 
         # --- Navigation Buttons - Icons set to standard visual direction ---
         self.nav_left_button = QPushButton("◀") # Left button, "previous" icon
@@ -861,13 +867,33 @@ class CalendarWidget(QWidget):
             self.sub_label = QLabel()
             self.sub_label.setFont(QFont(DEFAULT_FONT_FAMILY, secondary_font_size))
             self.sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.sub_label.setGraphicsEffect(self.shadow())
+            # scheme is already available from date_label styling
+            if self.boxed_style:
+                # Boxed mode: transparent bg, box_text color, no shadow
+                label_style = f"background-color: transparent; color: {scheme['box_text'].name(QColor.NameFormat.HexArgb)}; padding: 0px;"
+                self.sub_label.setStyleSheet(label_style)
+                self.sub_label.setGraphicsEffect(None)
+            else:
+                # Non-boxed mode: transparent bg, widget_text color, with shadow
+                label_style = f"background-color: transparent; color: {scheme['widget_text'].name(QColor.NameFormat.HexArgb)}; padding: 0px;"
+                self.sub_label.setStyleSheet(label_style)
+                self.sub_label.setGraphicsEffect(self.shadow())
             main_layout.addWidget(self.sub_label)
 
             self.event_label = QLabel("مناسبت: ---")
             self.event_label.setFont(QFont(DEFAULT_FONT_FAMILY, secondary_font_size))
             self.event_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.event_label.setGraphicsEffect(self.shadow())
+            # scheme is already available from date_label styling
+            if self.boxed_style:
+                # Boxed mode: transparent bg, box_text color, no shadow
+                label_style = f"background-color: transparent; color: {scheme['box_text'].name(QColor.NameFormat.HexArgb)}; padding: 0px;"
+                self.event_label.setStyleSheet(label_style)
+                self.event_label.setGraphicsEffect(None)
+            else:
+                # Non-boxed mode: transparent bg, widget_text color, with shadow
+                label_style = f"background-color: transparent; color: {scheme['widget_text'].name(QColor.NameFormat.HexArgb)}; padding: 0px;"
+                self.event_label.setStyleSheet(label_style)
+                self.event_label.setGraphicsEffect(self.shadow())
             self.event_label.setWordWrap(True)
             main_layout.addWidget(self.event_label)
 
@@ -877,6 +903,7 @@ class CalendarWidget(QWidget):
         self.setLayout(main_layout)
         self.update_date()
         if not self.settings.value("pos"): self.center_on_screen()
+
     def update_date(self):
         today = jdatetime.date.today() + jdatetime.timedelta(days=self.offset)
         g = today.togregorian(); h = Gregorian(g.year, g.month, g.day).to_hijri()
@@ -942,9 +969,9 @@ class CalendarWidget(QWidget):
                     self.event_label.setText("مناسبت: (خطای نامشخص)")
         
         # Style for QLabels
-        label_style_str = self.get_element_style(boxed=self.boxed_style, is_button=False)
+        label_style_str = self.get_element_style(element_should_have_own_box=self.boxed_style, is_button=False)
         # Style for QPushButtons (nav, today, center)
-        button_style_str = self.get_element_style(boxed=self.boxed_style, is_button=True)
+        button_style_str = self.get_element_style(element_should_have_own_box=self.boxed_style, is_button=True)
 
         if hasattr(self,'date_label'): self.date_label.setStyleSheet(label_style_str)
         
@@ -952,33 +979,6 @@ class CalendarWidget(QWidget):
         if hasattr(self,'nav_left_button'): self.nav_left_button.setStyleSheet(button_style_str)
         if hasattr(self,'nav_right_button'): self.nav_right_button.setStyleSheet(button_style_str)
         
-        # Top settings button hover style
-        if hasattr(self, 'top_settings_btn'):
-            text_color = scheme['widget_text'].name(QColor.NameFormat.HexArgb)
-            # Use a subtle version of flat_hover_bg for consistency
-            hover_bg = scheme['flat_hover_bg'].name(QColor.NameFormat.HexArgb) 
-            self.top_settings_btn.setStyleSheet(f"""
-                QPushButton {{ background:none; border:none; padding:0px; color:{text_color}; }}
-                QPushButton:hover {{ background-color: {hover_bg}; border-radius: 4px; }}""")
-
-        # Today icon button hover style
-        if hasattr(self, 'today_icon_btn'):
-            self.today_icon_btn.setStyleSheet(f"""
-                QPushButton {{ background:none; border:none; padding:0px; color:{text_color}; }}
-                QPushButton:hover {{ background-color: {hover_bg}; border-radius: 4px; }}""")
-
-        # Center icon button hover style
-        if hasattr(self, 'center_icon_btn'):
-            self.center_icon_btn.setStyleSheet(f"""
-                QPushButton {{ background:none; border:none; padding:0px; color:{text_color}; }}
-                QPushButton:hover {{ background-color: {hover_bg}; border-radius: 4px; }}""")
-
-        if hasattr(self,'compact_mode') and not self.compact_mode:
-            if hasattr(self,'sub_label'): self.sub_label.setStyleSheet(label_style_str)
-            if hasattr(self,'event_label'): self.event_label.setStyleSheet(label_style_str)
-            
-            if hasattr(self,'today_btn'): self.today_btn.setStyleSheet(button_style_str)
-            if hasattr(self,'center_widget_btn'): self.center_widget_btn.setStyleSheet(button_style_str)
         self.adjustSize()
 
     def prev_day(self): self.offset -= 1; self.update_date()
@@ -986,8 +986,7 @@ class CalendarWidget(QWidget):
     def reset_today(self): self.offset = 0; self.update_date()
     def center_widget_action(self): self.center_on_screen()
 
-    def show_settings_menu(self):
-        if not hasattr(self, 'top_settings_btn') or not self.top_settings_btn: return
+    def _create_context_menu(self):
         menu = QMenu(self)
         scheme = color_schemes[self.active_scheme_key]
         menu_style = f"""
@@ -1077,7 +1076,7 @@ class CalendarWidget(QWidget):
             action = QAction(freq_name, frequency_menu, checkable=True)
             action.setData(freq_key) # Store the key in the action's data
             action.setChecked(freq_key == current_frequency)
-            action.triggered.connect(self._handle_quote_frequency_change)
+            action.triggered.connect(self._handle_quote_frequency_change) # Reverted from lambda
             self.frequency_action_group.addAction(action)
             frequency_menu.addAction(action)
         
@@ -1099,7 +1098,7 @@ class CalendarWidget(QWidget):
             action = QAction(w_key, width_menu, checkable=True) # Use w_key as label
             action.setData(w_key)
             action.setChecked(w_key == current_width_key)
-            action.triggered.connect(self._handle_quote_width_change)
+            action.triggered.connect(self._handle_quote_width_change) # Reverted from lambda
             self.quote_width_action_group.addAction(action)
             width_menu.addAction(action)
         quote_settings_menu.addMenu(width_menu)
@@ -1158,9 +1157,22 @@ class CalendarWidget(QWidget):
         menu.addMenu(rss_settings_menu)
         menu.addSeparator()
 
+        # Add Go to Today and Center Window actions (replacing old buttons)
+        today_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "بازگشت به امروز", menu)
+        today_action.triggered.connect(self.reset_today)
+        menu.addAction(today_action)
+
+        center_action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon), "مرکز صفحه", menu)
+        center_action.triggered.connect(self.center_widget_action)
+        menu.addAction(center_action)
+
+        menu.addSeparator()
         menu.addAction("❌ خروج", QApplication.instance().quit)
-        btn_global_pos = self.top_settings_btn.mapToGlobal(QPoint(0, self.top_settings_btn.height()))
-        menu.exec(btn_global_pos)
+        return menu
+
+    def contextMenuEvent(self, event: QContextMenuEvent):
+        menu = self._create_context_menu()
+        menu.exec(event.globalPos())
 
     def set_color_scheme(self, k):
         self.active_scheme_key = k
@@ -1170,6 +1182,7 @@ class CalendarWidget(QWidget):
         # Also update the quote widget if it exists
         if hasattr(self, 'quote_widget') and self.quote_widget:
             self.quote_widget.apply_theme()
+        # Also update the RSS widget if it exists
         if hasattr(self, 'rss_widget') and self.rss_widget:
             self.rss_widget.apply_theme()
 
@@ -1315,86 +1328,182 @@ class CalendarWidget(QWidget):
     def toggle_rss_widget_visibility_action(self):
         if not hasattr(self, 'rss_widget') or not self.rss_widget:
             self.init_rss_widget() # Ensure it's created if called early
+            if not self.rss_widget: # Still not created, something is wrong
+                print("[CalendarWidget] Error: RSS Widget could not be initialized for toggling visibility.")
+                if hasattr(self, 'toggle_rss_action'): 
+                    self.toggle_rss_action.setChecked(False) 
+                return
 
-        if hasattr(self, 'rss_widget') and self.rss_widget:
-            is_now_visible = not self.rss_widget.isVisible()
-            self.rss_widget.setVisible(is_now_visible)
-            self.settings.setValue("rss_widget/is_visible", is_now_visible)
-
-    def get_element_style(self, boxed, is_button=False):
-        scheme = color_schemes[self.active_scheme_key]
-        padding_value = "padding: 4px 6px;" 
-        border_radius_value = "border-radius: 6px;"
+        is_visible = not self.rss_widget.isVisible()
+        self.rss_widget.setVisible(is_visible)
+        self.settings.setValue("rss_widget/visible", is_visible)
+        if hasattr(self, 'toggle_rss_action'): 
+            self.toggle_rss_action.setChecked(is_visible)
         
-        # Base properties
-        base_bg_color_str = ""
-        base_text_color_str = f"color: {scheme['widget_text'].name(QColor.NameFormat.HexArgb)};"
-        border_style_str = "border: none;"
+        if self.settings.value("rss_widget/auto_adjust_calendar_size", True, type=bool):
+            if hasattr(self, 'adjust_calendar_size_for_rss_widget') and callable(getattr(self, 'adjust_calendar_size_for_rss_widget')):
+                 self.adjust_calendar_size_for_rss_widget()
+            else:
+                 # print("[CalendarWidget] adjust_calendar_size_for_rss_widget not found/callable, falling back to adjustSize().")
+                 self.adjustSize() 
 
-        if boxed: 
-            base_bg_color_str = f"background-color: {scheme['box_bg'].name(QColor.NameFormat.HexArgb)};"
-            base_text_color_str = f"color: {scheme['box_text'].name(QColor.NameFormat.HexArgb)};"
-            base_border_color = scheme['box_border']
-            lighter_border = base_border_color.lighter(130).name(QColor.NameFormat.HexArgb)
-            darker_border = base_border_color.darker(130).name(QColor.NameFormat.HexArgb)   
-            border_style_str = (f"border-width: 1px; border-style: solid;"
-                               f"border-top-color: {lighter_border}; border-left-color: {lighter_border};"
-                               f"border-bottom-color: {darker_border}; border-right-color: {darker_border};")
-        else: # Not boxed (flat)
+        # print(f"[CalendarWidget] RSS widget visibility toggled to: {is_visible}")
+
+    def _show_manage_rss_feeds_dialog(self):
+        if not hasattr(self, 'rss_widget') or not self.rss_widget:
+            self.init_rss_widget() # Ensure it's created
+            if not self.rss_widget: # Still not created, something is wrong
+                print("[CalendarWidget] Error: RSS Widget could not be initialized for managing feeds.")
+                # Optionally, show a QMessageBox to the user
+                return
+
+        current_feeds_list = list(self.rss_widget.feeds_data) # Pass a copy
+        dialog = ManageRSSFeedsDialog(current_feeds_list, self)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            updated_feeds = dialog.get_updated_feeds()
+            self.rss_widget.set_feeds(updated_feeds)
+            # No need to save to self.settings here, rss_widget.save_settings() will handle it.
+            # self.settings.setValue("rss_widget/feeds_list", updated_feeds) # This is done in rss_widget.save_settings
+            print(f"[CalendarWidget] RSS feeds updated by dialog: {updated_feeds}")
+        else:
+            print("[CalendarWidget] RSS feed management dialog cancelled.")
+
+    def _handle_rss_box_width_change(self):
+        action = self.sender()
+        if action and hasattr(self, 'rss_widget') and self.rss_widget:
+            new_width_key = action.data()
+            self.rss_widget.update_display_settings(width_key=new_width_key)
+            # self.settings.setValue("rss_widget/width_key", new_width_key) # RSSReaderWidget.save_settings() handles this now
+            print(f"[CalendarWidget] RSS widget width key set to: {new_width_key}")
+
+    def toggle_rss_widget_visibility_action(self):
+        if not hasattr(self, 'rss_widget') or not self.rss_widget:
+            self.init_rss_widget() # Ensure it's created if called early
+
+    def get_element_style(self, element_should_have_own_box, is_button=False):
+        scheme = self.get_current_color_scheme()
+        padding_str = "padding: 4px 6px;"  # Default for boxed elements or standalone flat buttons
+        border_radius_str = "border-radius: 6px;" # Default for boxed elements
+        hover_style_specifics = ""
+
+        if self.boxed_style:  # CalendarWidget itself is boxed
+            # Elements inside are flat relative to CalendarWidget's box
             base_bg_color_str = "background-color: transparent;"
+            base_text_color_str = f"color: {scheme['box_text'].name(QColor.NameFormat.HexArgb)};"
+            border_style_str = "border: none;"
+            border_radius_str = "border-radius: 4px;" # Smaller radius for flat items within a box
+            if not is_button: # Label inside boxed CalendarWidget
+                padding_str = "padding: 0px;" # No padding for truly flat labels
+            # else: button padding remains "4px 6px" for clickability and visual balance
+            
+            if is_button:
+                hover_bg_color_str = f"background-color: {scheme.get('flat_element_hover_bg', scheme['flat_hover_bg']).name(QColor.NameFormat.HexArgb)};"
+                hover_style_specifics = f"{hover_bg_color_str}"
+
+        else:  # CalendarWidget itself is NOT boxed (flat)
+            if element_should_have_own_box: # Element wants its own box (and parent is flat)
+                base_bg_color_str = f"background-color: {scheme['box_bg'].name(QColor.NameFormat.HexArgb)};"
+                base_text_color_str = f"color: {scheme['box_text'].name(QColor.NameFormat.HexArgb)};"
+                base_border_color = scheme['box_border']
+                lighter_border = base_border_color.lighter(130).name(QColor.NameFormat.HexArgb)
+                darker_border = base_border_color.darker(130).name(QColor.NameFormat.HexArgb)
+                border_style_str = (f"border-width: 1px; border-style: solid;"
+                                   f"border-top-color: {lighter_border}; border-left-color: {lighter_border};"
+                                   f"border-bottom-color: {darker_border}; border-right-color: {darker_border};")
+                # padding_str and border_radius_str use their defaults for a boxed element
+                if is_button:
+                    hover_bg_color_str = f"background-color: {scheme['box_bg_hover'].name(QColor.NameFormat.HexArgb)};"
+                    hover_style_specifics = f"{hover_bg_color_str}"
+            else:  # Element is flat, and CalendarWidget is also flat
+                base_bg_color_str = "background-color: transparent;"
+                base_text_color_str = f"color: {scheme['widget_text'].name(QColor.NameFormat.HexArgb)};"
+                border_style_str = "border: none;"
+                border_radius_str = "border-radius: 4px;" # Smaller radius for flat items
+                if not is_button: # Flat label in flat parent
+                    padding_str = "padding: 1px;" # Minimal padding
+                # else: button padding remains "4px 6px" for clickability
+                
+                if is_button:
+                    hover_bg_color_str = f"background-color: {scheme['flat_hover_bg'].name(QColor.NameFormat.HexArgb)};"
+                    hover_style_specifics = f"{hover_bg_color_str}"
         
-        base_style = f"{base_bg_color_str} {base_text_color_str} {border_style_str} {padding_value} {border_radius_value if boxed else 'border-radius: 4px;'}" # smaller radius for flat
+        base_style = f"{base_bg_color_str} {base_text_color_str} {border_style_str} {padding_str} {border_radius_str}"
 
         if is_button:
-            hover_bg_color_str = ""
-            if boxed:
-                hover_bg_color_str = f"background-color: {scheme['box_bg_hover'].name(QColor.NameFormat.HexArgb)};"
-            else: # Flat button hover
-                hover_bg_color_str = f"background-color: {scheme['flat_hover_bg'].name(QColor.NameFormat.HexArgb)};"
-            
-            # For flat buttons, we might not want to change text color or border on hover
-            # For boxed buttons, the existing border and text color from base_style might be fine for hover too
-            # Or you can define specific hover text/border colors in scheme
-            hover_style_specifics = f"{hover_bg_color_str}" # Add other hover specifics if needed
-
-            selector = "QPushButton" # Could be more specific if needed
+            selector = "QPushButton"
             return f"{selector} {{ {base_style} }} {selector}:hover {{ {hover_style_specifics} }}"
-        else: # For QLabels
+        else:  # For QLabels
             selector = "QLabel"
             return f"{selector} {{ {base_style} }}"
 
+    def shadow(self): # Utility for shadow effect
+        s = QGraphicsDropShadowEffect()
+        s.setColor(QColor(0,0,0,100))
+        s.setBlurRadius(8)
+        s.setOffset(1,1)
+        return s
 
-    def shadow(self):s=QGraphicsDropShadowEffect();s.setColor(QColor(0,0,0,100));s.setBlurRadius(8);s.setOffset(1,1);return s
-    def center_on_screen(self):self.adjustSize();scr=QApplication.primaryScreen().availableGeometry();self.move((scr.width()-self.width())//2+scr.left(),(scr.height()-self.height())//2+scr.top())
-    def mousePressEvent(self,e):
-        if e.button()==Qt.MouseButton.LeftButton:self.old_pos=e.globalPosition().toPoint();e.accept()
-    def mouseMoveEvent(self,e):
-        if e.buttons()==Qt.MouseButton.LeftButton and self.old_pos is not None:
-            d=QPoint(e.globalPosition().toPoint()-self.old_pos);self.move(self.x()+d.x(),self.y()+d.y());self.old_pos=e.globalPosition().toPoint();e.accept()
-    def mouseReleaseEvent(self,e):
-        if e.button()==Qt.MouseButton.LeftButton and self.old_pos is not None:self.settings.setValue("pos",self.pos());self.old_pos=None;e.accept()
-    def closeEvent(self,e):
-        self.settings.setValue("pos",self.pos())
+    def center_on_screen(self): # Utility to center widget
+        self.adjustSize() 
+        scr = QApplication.primaryScreen().availableGeometry()
+        self.move((scr.width() - self.width()) // 2 + scr.left(), (scr.height() - self.height()) // 2 + scr.top())
+
+    def mousePressEvent(self, e: QMouseEvent):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.old_pos = e.globalPosition().toPoint()
+            e.accept()
+        else:
+            super().mousePressEvent(e)
+
+    def mouseMoveEvent(self, e: QMouseEvent):
+        if e.buttons() == Qt.MouseButton.LeftButton and self.old_pos is not None:
+            delta = QPoint(e.globalPosition().toPoint() - self.old_pos)
+            self.move(self.x() + delta.x(), self.y() + delta.y())
+            self.old_pos = e.globalPosition().toPoint()
+            e.accept()
+        else:
+            super().mouseMoveEvent(e)
+
+    def mouseReleaseEvent(self, e: QMouseEvent):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.old_pos = None
+            e.accept()
+        else:
+            super().mouseReleaseEvent(e)
+
+
+    def closeEvent(self, event):
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.setValue("windowState", self.saveState())
         if hasattr(self, 'quote_widget') and self.quote_widget:
-            # Save the quote widget's position and other settings
             self.quote_widget.save_settings()
-            
-            # IMPORTANT: Don't rely on isVisible() at close time as it may be affected by window manager
-            # Instead, use the last explicitly set visibility state from settings
-            # This ensures the visibility setting persists between sessions correctly
-            current_setting = self.settings.value("quote_widget/is_visible", True, type=bool)
-            print(f"[CalendarWidget] Persisting quote widget visibility state: {current_setting}")
-            
-            # Don't save here, as we're using the current setting from storage
-            # Only toggle_quote_widget_visibility_action should modify this setting
-            self.quote_widget.close()
-
         if hasattr(self, 'rss_widget') and self.rss_widget:
             self.rss_widget.save_settings()
-            rss_current_setting = self.settings.value("rss_widget/is_visible", False, type=bool)
-            print(f"[CalendarWidget] Persisting RSS widget visibility state: {rss_current_setting}")
-            self.rss_widget.close()
-        super().closeEvent(e)
+        super().closeEvent(event)
+        QApplication.instance().quit() # Ensure application exits
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+        elif event.key() == Qt.Key.Key_Right:
+            self.next_day()
+        elif event.key() == Qt.Key.Key_Left:
+            self.prev_day()
+        elif event.key() == Qt.Key.Key_Up:
+            self.next_month()
+        elif event.key() == Qt.Key.Key_Down:
+            self.prev_month()
+        elif event.key() == Qt.Key.Key_PageUp:
+            self.next_year()
+        elif event.key() == Qt.Key.Key_PageDown:
+            self.prev_year()
+        elif event.key() == Qt.Key.Key_Home:
+            self.go_today()
+        elif event.key() == Qt.Key.Key_M and (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            if hasattr(self, '_show_manage_rss_feeds_dialog'): self._show_manage_rss_feeds_dialog()
+        else:
+            super().keyPressEvent(event)
 
 if __name__ == "__main__":
     app=QApplication(sys.argv);w=CalendarWidget();w.show();sys.exit(app.exec())
