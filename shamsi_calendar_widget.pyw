@@ -1117,15 +1117,15 @@ class CalendarWidget(QWidget):
         rss_settings_menu.setStyleSheet(menu_style)
 
         # Toggle RSS Widget Visibility Action
-        toggle_rss_visibility_action = QAction("👁️ نمایش/مخفی کردن RSS", rss_settings_menu, checkable=True)
+        self.toggle_rss_action = QAction("👁️ نمایش/مخفی کردن RSS", rss_settings_menu, checkable=True)
         initial_visibility = False
         if hasattr(self, 'rss_widget') and self.rss_widget:
             initial_visibility = self.rss_widget.isVisible()
         else: 
             initial_visibility = self.settings.value("rss_widget/is_visible", False, type=bool)
-        toggle_rss_visibility_action.setChecked(initial_visibility)
-        toggle_rss_visibility_action.triggered.connect(self.toggle_rss_widget_visibility_action)
-        rss_settings_menu.addAction(toggle_rss_visibility_action)
+        self.toggle_rss_action.setChecked(initial_visibility)
+        self.toggle_rss_action.triggered.connect(self.toggle_rss_widget_visibility_action)
+        rss_settings_menu.addAction(self.toggle_rss_action)
 
         # Action to manage RSS feeds
         manage_rss_feeds_action = QAction("🔧 مدیریت منبع‌های RSS", rss_settings_menu)
@@ -1337,7 +1337,7 @@ class CalendarWidget(QWidget):
 
         is_visible = not self.rss_widget.isVisible()
         self.rss_widget.setVisible(is_visible)
-        self.settings.setValue("rss_widget/visible", is_visible)
+        self.settings.setValue("rss_widget/is_visible", is_visible)
         if hasattr(self, 'toggle_rss_action'): 
             self.toggle_rss_action.setChecked(is_visible)
         
@@ -1377,10 +1377,6 @@ class CalendarWidget(QWidget):
             self.rss_widget.update_display_settings(width_key=new_width_key)
             # self.settings.setValue("rss_widget/width_key", new_width_key) # RSSReaderWidget.save_settings() handles this now
             print(f"[CalendarWidget] RSS widget width key set to: {new_width_key}")
-
-    def toggle_rss_widget_visibility_action(self):
-        if not hasattr(self, 'rss_widget') or not self.rss_widget:
-            self.init_rss_widget() # Ensure it's created if called early
 
     def get_element_style(self, element_should_have_own_box, is_button=False):
         scheme = self.get_current_color_scheme()

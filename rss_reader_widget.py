@@ -589,7 +589,7 @@ class RSSReaderWidget(QWidget):
             QMessageBox.information(self, "محتوا موجود نیست", "محتوایی برای خلاصه سازی یا ترجمه از لینک خبر یافت نشد.")
             return
 
-        display_original_content = (full_article_text[:700] + '...') if len(full_article_text) > 700 else full_article_text
+        display_original_content = (full_article_text[:2000] + '...') if len(full_article_text) > 2000 else full_article_text
 
         summary_prompt = "Summarize the following text very concisely, focusing on the main points. The summary should be in the same language as the input text (which could be multilingual)."
         
@@ -631,7 +631,7 @@ class RSSReaderWidget(QWidget):
         try:
             client = OpenAI(api_key=self.togetherai_api_token, base_url="https://api.together.xyz/v1")
             response = client.chat.completions.create(
-                model="mistralai/Mistral-7B-Instruct-v0.2", # Or another cost-effective model from Together.AI # Or other suitable model
+                model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", # Free model from Meta
                 messages=[
                     {"role": "system", "content": task_prompt},
                     {"role": "user", "content": text_to_process},
