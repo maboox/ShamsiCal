@@ -52,8 +52,21 @@ class RSSReaderWidget(QWidget):
         self.feed_source_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         header_layout.addWidget(self.feed_source_label)
         header_layout.addStretch()
-        
-        # Moved buttons from footer to header
+
+        # --- Feed Navigation Buttons ---
+        self.prev_feed_button = QPushButton("⏪") # Previous Feed
+        self.prev_feed_button.setToolTip("منبع قبلی")
+        self.prev_feed_button.setFixedSize(28, 28)
+        self.prev_feed_button.clicked.connect(self._prev_feed_source)
+        header_layout.addWidget(self.prev_feed_button)
+
+        self.next_feed_button = QPushButton("⏩") # Next Feed
+        self.next_feed_button.setToolTip("منبع بعدی")
+        self.next_feed_button.setFixedSize(28, 28)
+        self.next_feed_button.clicked.connect(self._next_feed_source)
+        header_layout.addWidget(self.next_feed_button)
+
+        # --- Item Navigation Buttons (Moved from footer to header) ---
         self.prev_button = QPushButton("◀️") # Changed icon
         self.prev_button.setToolTip("مورد قبلی")
         self.prev_button.setFixedSize(28, 28)
@@ -195,6 +208,8 @@ class RSSReaderWidget(QWidget):
             self.open_link_button.setEnabled(False)
             self.prev_button.setEnabled(False)
             self.next_button.setEnabled(False)
+            self.prev_feed_button.setEnabled(False) # Disable feed nav if no feeds
+            self.next_feed_button.setEnabled(False) # Disable feed nav if no feeds
             # Default alignment for empty state
             text_align = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             content_align = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop
@@ -254,9 +269,34 @@ class RSSReaderWidget(QWidget):
 
         self.prev_button.setEnabled(len(items) > 1)
         self.next_button.setEnabled(len(items) > 1)
+
+        # Enable/disable feed navigation buttons
+        can_navigate_feeds = len(self.feeds_data) > 1
+        self.prev_feed_button.setEnabled(can_navigate_feeds)
+        self.next_feed_button.setEnabled(can_navigate_feeds)
         
         self.content_label.adjustSize() # Recalculate size for scroll area
         self.adjustSize()
+
+    def _prev_feed_source(self):
+        if not self.feeds_data or len(self.feeds_data) <= 1:
+            return
+        self.current_feed_index -= 1
+        if self.current_feed_index < 0:
+            self.current_feed_index = len(self.feeds_data) - 1
+        self.current_item_index = -1 # Reset item index for new feed
+        self.fetch_feed(self.current_feed_index)
+        self.settings.setValue("rss_widget/current_feed_index", self.current_feed_index)
+
+    def _next_feed_source(self):
+        if not self.feeds_data or len(self.feeds_data) <= 1:
+            return
+        self.current_feed_index += 1
+        if self.current_feed_index >= len(self.feeds_data):
+            self.current_feed_index = 0
+        self.current_item_index = -1 # Reset item index for new feed
+        self.fetch_feed(self.current_feed_index)
+        self.settings.setValue("rss_widget/current_feed_index", self.current_feed_index)
 
     def refresh_current_feed(self):
         if self.feeds_data and 0 <= self.current_feed_index < len(self.feeds_data):
