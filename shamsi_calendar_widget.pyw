@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QMenu, QGraphicsDropShadowEffect, QInputDialog,
     QDialog, QListWidget, QLineEdit, QDialogButtonBox, QListWidgetItem,
-    QSizePolicy
+    QSizePolicy, QStyle
 )
 from PyQt6.QtGui import QFont, QIcon, QAction, QColor, QActionGroup, QPainter, QBrush, QPen
 from PyQt6.QtCore import Qt, QPoint, QSettings, QTimer, QDateTime # Removed QSize as it's not used
@@ -498,11 +498,25 @@ class CalendarWidget(QWidget):
                     continue
                 
                 try:
-                    url = f"https://holidayapi.ir/jalali/{current_processing_date.year}/{current_processing_date.month:02}/{current_processing_date.day:02}"
+                    # Use the new pnldev.com API
+                    url = f"https://pnldev.com/api/calender?year={current_processing_date.year}&month={current_processing_date.month}&day={current_processing_date.day}"
                     response = requests.get(url, timeout=10)
                     response.raise_for_status()
                     data = response.json()
-                    events_list = [e["description"] for e in data.get("events", [])]
+                    events_list = [] # Default to empty list
+                    if data.get("status") is True and "result" in data and isinstance(data["result"], dict):
+                        events_list = data["result"].get("event", [])
+                        if not isinstance(events_list, list):
+                            print(f"  Events data for {date_str} is not a list: {events_list}. Treating as no events.")
+                            events_list = []
+                    else:
+                        status_val = data.get('status', 'N/A')
+                        error_msg = data.get('result', 'No result field or API status not true')
+                        if isinstance(error_msg, dict) and "message" in error_msg: # some APIs return error details in result.message
+                            error_msg = error_msg["message"]
+                        elif not isinstance(error_msg, str): # ensure error_msg is a string for logging
+                            error_msg = str(error_msg)
+                        print(f"  Failed to parse events for {date_str}. API Status: {status_val}. Message: '{error_msg}'")
                     self._save_event_to_cache(current_processing_date, events_list)
                     print(f"  Fetched and cached events for {date_str}: {events_list if events_list else 'No events'}")
                 except requests.exceptions.RequestException as e:
@@ -540,52 +554,88 @@ class CalendarWidget(QWidget):
         self._fetch_and_cache_range_events(start_date, end_date)
 
     def _fetch_and_cache_year_events(self, year):
-        print(f"Starting to fetch and cache events for Shamsi year: {year}")
-        current_day = jdatetime.date(year, 1, 1)
-        # Determine the number of days in the year (handles leap years)
-        # jdatetime.date(year, 1, 1).isleap() is the most direct way.
-        # A Shamsi year has 366 days if it's a leap year, 365 otherwise.
-        # The last month, Esfand, has 30 days in a leap year.
-        is_leap = jdatetime.date(year, 1, 1).isleap()
-        days_in_year = 366 if is_leap else 365
-        print(f"Year {year} is a leap year: {is_leap}. Days in year: {days_in_year}")
-
-        days_processed_for_event_processing = 0
-        for day_offset in range(days_in_year):
-            actual_date = jdatetime.date(year, 1, 1) + jdatetime.timedelta(days=day_offset)
-            date_str = actual_date.strftime("%Y-%m-%d")
-            print(f"Processing {date_str}...")
-
-            cached_events = self._load_event_from_cache(actual_date)
-            if cached_events is not None:
-                print(f"  Events for {date_str} already in cache. Skipping.")
-                continue
-            
-            try:
-                url = f"https://holidayapi.ir/jalali/{actual_date.year}/{actual_date.month:02}/{actual_date.day:02}"
-                response = requests.get(url, timeout=10) # Increased timeout for potentially many requests
-                response.raise_for_status()
-                data = response.json()
-                events_list = [e["description"] for e in data.get("events", [])]
-                self._save_event_to_cache(actual_date, events_list)
-                print(f"  Fetched and cached events for {date_str}: {events_list if events_list else 'No events'}")
-            except requests.exceptions.RequestException as e:
-                print(f"  Failed to fetch events for {date_str}: {e}. Saving as no events.")
-                self._save_event_to_cache(actual_date, []) # Save empty list on error to prevent re-fetching this day immediately
-            except json.JSONDecodeError as e:
-                print(f"  JSON Decode Error for {date_str}: {e}. Saving as no events.")
-                self._save_event_to_cache(actual_date, [])
-            except Exception as e:
-                print(f"  Unexpected error for {date_str}: {e}. Saving as no events.")
-                self._save_event_to_cache(actual_date, [])
-            
-            time.sleep(0.1) # Be polite to the API server
-            days_processed_for_event_processing += 1
-            if days_processed_for_event_processing % 10 == 0: # Process events every 10 days
-                QApplication.processEvents() # Keep UI responsive
+        print(f"Starting to fetch and cache events for Shamsi year: {year} using new API.")
+        api_url = f"https://pnldev.com/api/calender?year={year}"
         
-        QApplication.processEvents() # Final process events
-        print(f"Finished fetching and caching events for Shamsi year: {year}")
+        try:
+            print(f"Fetching all events for year {year} from {api_url}...")
+            response = requests.get(api_url, timeout=30) # Increased timeout for a larger response
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            data = response.json()
+
+            if data.get("status") is True and "result" in data:
+                year_data = data["result"]
+                days_processed_count = 0
+                if not isinstance(year_data, dict): # Ensure year_data is a dictionary (months)
+                    print(f"  Error: Expected year_data to be a dictionary for year {year}, got {type(year_data)}. API response: {data.get('result')}")
+                    # Save empty events for all days of the year to prevent re-fetching with bad data
+                    # This part might need more nuanced error handling depending on how often this case occurs
+                    # For now, we log and exit the processing for this year.
+                else:
+                    for month_str, month_data in year_data.items():
+                        if not isinstance(month_data, dict): # Skip if month_data is not a dictionary of days
+                            print(f"  Skipping non-dict month_data for month {month_str} in year {year}. Value: {month_data}")
+                            continue
+                        for day_str, day_details in month_data.items():
+                            if not isinstance(day_details, dict): # Skip if day_details is not a dictionary
+                                print(f"  Skipping non-dict day_details for {year}-{month_str}-{day_str}. Value: {day_details}")
+                                continue
+
+                            # Ensure 'solar' details are present to confirm it's a valid day entry
+                            if "solar" not in day_details or not isinstance(day_details["solar"], dict) or not all(k in day_details["solar"] for k in ["year", "month", "day"]):
+                                print(f"  Skipping entry for {year}-{month_str}-{day_str} due to missing or malformed solar details. Details: {day_details.get('solar')}")
+                                continue
+                        
+                            try:
+                                api_year = int(day_details["solar"]["year"])
+                                api_month = int(day_details["solar"]["month"])
+                                api_day = int(day_details["solar"]["day"])
+                                
+                                # Verify that the year, month, day from API match our iteration context
+                                if api_year != year or api_month != int(month_str) or api_day != int(day_str):
+                                    print(f"  Data mismatch for {year}-{month_str}-{day_str}: API reported {api_year}-{api_month}-{api_day}. Skipping.")
+                                    continue
+
+                                actual_date = jdatetime.date(year, int(month_str), int(day_str))
+                                events_list = day_details.get("event", []) # Default to empty list if "event" key is missing
+                                
+                                if not isinstance(events_list, list):
+                                    print(f"  Events data for {actual_date.strftime('%Y-%m-%d')} is not a list: {events_list}. Treating as no events.")
+                                    events_list = []
+                                    
+                                self._save_event_to_cache(actual_date, events_list)
+                                days_processed_count +=1
+                            except (ValueError, TypeError) as ve_te:
+                                print(f"  Error processing date/event for {year}-{month_str}-{day_str} from solar details {day_details.get('solar')}: {ve_te}")
+                            except Exception as inner_e:
+                                print(f"  Unexpected error processing day {year}-{month_str}-{day_str}: {inner_e}")
+                
+                if days_processed_count > 0:
+                    print(f"  Successfully processed and cached {days_processed_count} days for year {year}.")
+                else:
+                    print(f"  No valid day data found or processed for year {year} in API response.")
+            else:
+                status = data.get('status', 'N/A')
+                error_message = "API status not true or result missing."
+                # Check if 'result' contains a string error message from the API
+                if "result" in data and isinstance(data["result"], str):
+                    error_message = data["result"]
+                elif "message" in data and isinstance(data["message"], str): # Some APIs use 'message'
+                    error_message = data["message"]
+                print(f"  Failed to parse events for year {year}. API Status: {status}. Message: '{error_message}'")
+
+        except requests.exceptions.Timeout:
+            print(f"  Timeout while fetching events for year {year} from {api_url}.")
+            # Consider saving empty events for the whole year or marking year as failed fetch
+        except requests.exceptions.RequestException as e:
+            print(f"  Failed to fetch events for year {year} from {api_url}: {e}")
+        except json.JSONDecodeError as e:
+            print(f"  JSON Decode Error for year {year} from {api_url}: {e}")
+        except Exception as e:
+            print(f"  Unexpected error while processing events for year {year}: {e}")
+    
+        QApplication.processEvents() # Process events once after attempting to fetch the whole year
+        print(f"Finished fetching and caching attempt for Shamsi year: {year} using new API.")
 
     # _handle_cache_current_year and _handle_cache_next_year are no longer used by the menu
     # def _handle_cache_current_year(self):
@@ -731,12 +781,32 @@ class CalendarWidget(QWidget):
 
         top_right_layout = QHBoxLayout()
         top_right_layout.addStretch(1)
-        self.top_settings_btn = QPushButton("⚙️")
+
+        # Today Icon Button
+        self.today_icon_btn = QPushButton()
+        self.today_icon_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        self.today_icon_btn.setToolTip("بازگشت به امروز")
+        self.today_icon_btn.setFixedSize(26, 26)
+        self.today_icon_btn.setFlat(True)
+        # Hover style for icon buttons will be set in update_date like settings button
+        self.today_icon_btn.clicked.connect(self.reset_today)
+        top_right_layout.addWidget(self.today_icon_btn)
+
+        # Center Window Icon Button
+        self.center_icon_btn = QPushButton()
+        self.center_icon_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
+        self.center_icon_btn.setToolTip("مرکز صفحه")
+        self.center_icon_btn.setFixedSize(26, 26)
+        self.center_icon_btn.setFlat(True)
+        self.center_icon_btn.clicked.connect(self.center_widget_action)
+        top_right_layout.addWidget(self.center_icon_btn)
+        
+        # Settings Button (existing)
+        self.top_settings_btn = QPushButton("⚙️") # Using a gear character
         settings_icon_font_size = max(10, int(self.font_pt * 0.8))
         self.top_settings_btn.setFont(QFont(DEFAULT_FONT_FAMILY, settings_icon_font_size))
-        self.top_settings_btn.setFixedSize(26, 26) # Adjusted size
+        self.top_settings_btn.setFixedSize(26, 26)
         self.top_settings_btn.setFlat(True)
-        # Hover style for top_settings_btn will be set in update_date
         self.top_settings_btn.clicked.connect(self.show_settings_menu)
         top_right_layout.addWidget(self.top_settings_btn)
         main_layout.addLayout(top_right_layout)
@@ -757,9 +827,8 @@ class CalendarWidget(QWidget):
             btn.setFlat(True) # Flat appearance, detailed style (including hover) in update_date
             btn.setGraphicsEffect(self.shadow())
         
-        # Functions remain standard: left goes to previous, right goes to next
-        self.nav_left_button.clicked.connect(self.prev_day) 
-        self.nav_right_button.clicked.connect(self.next_day)
+        self.nav_right_button.clicked.connect(self.prev_day) 
+        self.nav_left_button.clicked.connect(self.next_day)
         # --- End Navigation Buttons ---
 
         date_row_layout = QHBoxLayout()
@@ -782,31 +851,12 @@ class CalendarWidget(QWidget):
             self.event_label.setWordWrap(True)
             main_layout.addWidget(self.event_label)
 
-            bottom_buttons_layout = QHBoxLayout()
-            self.today_btn = QPushButton("بازگشت به امروز")
-            self.center_widget_btn = QPushButton("مرکز صفحه")
-            
-            action_buttons = [self.today_btn, self.center_widget_btn]
-            for btn in action_buttons:
-                btn.setFont(QFont(DEFAULT_FONT_FAMILY, secondary_font_size))
-                btn.setFlat(True) 
-                btn.setGraphicsEffect(self.shadow()) 
-            
-            self.today_btn.clicked.connect(self.reset_today)
-            self.center_widget_btn.clicked.connect(self.center_widget_action) 
-
-            bottom_buttons_layout.addStretch(1)
-            bottom_buttons_layout.addWidget(self.today_btn)
-            bottom_buttons_layout.addSpacing(10) 
-            bottom_buttons_layout.addWidget(self.center_widget_btn)
-            bottom_buttons_layout.addStretch(1)
-            
-            main_layout.addLayout(bottom_buttons_layout)
+            # The old bottom_buttons_layout is intentionally omitted here as its functionality
+            # has been moved to the icon buttons in the top_right_layout.
 
         self.setLayout(main_layout)
         self.update_date()
         if not self.settings.value("pos"): self.center_on_screen()
-
     def update_date(self):
         today = jdatetime.date.today() + jdatetime.timedelta(days=self.offset)
         g = today.togregorian(); h = Gregorian(g.year, g.month, g.day).to_hijri()
@@ -822,11 +872,33 @@ class CalendarWidget(QWidget):
                 self.event_label.setText("مناسبت: " + ", ".join(cached_events) if cached_events else "مناسبت: ---")
             else:
                 try:
-                    url = f"https://holidayapi.ir/jalali/{today.year}/{today.month:02}/{today.day:02}"
-                    response = requests.get(url, timeout=10) # Increased timeout
-                    response.raise_for_status() # Raise an exception for HTTP errors
+                    # Use the new pnldev.com API for inline fetching
+                    url = f"https://pnldev.com/api/calender?year={today.year}&month={today.month}&day={today.day}"
+                    response = requests.get(url, timeout=10)
+                    response.raise_for_status()
                     data = response.json()
-                    ev = [e["description"] for e in data.get("events", [])]
+                    ev = [] # Default to empty list
+                    if data.get("status") is True and "result" in data and isinstance(data["result"], dict):
+                        ev = data["result"].get("event", [])
+                        if not isinstance(ev, list):
+                            print(f"  Events data for {today.strftime('%Y-%m-%d')} in update_date is not a list: {ev}. Treating as no events.")
+                            ev = []
+                    else: # This 'else' means data.get("status") was not True or 'result' was missing/not a dict
+                        current_status_val = "Unknown"
+                        current_error_msg = "Malformed API response or status not true."
+                        if isinstance(data, dict):
+                            current_status_val = str(data.get('status', 'N/A')) # Ensure string for printing
+                            raw_error_msg = data.get('result', 'No result field or API status not true')
+                            if isinstance(raw_error_msg, dict) and "message" in raw_error_msg:
+                                current_error_msg = str(raw_error_msg["message"])
+                            elif not isinstance(raw_error_msg, str):
+                                current_error_msg = str(raw_error_msg)
+                            else:
+                                current_error_msg = raw_error_msg # It's already a string
+                        else:
+                            current_error_msg = f"API response was not a dictionary: {str(data)[:100]}" # Log part of the unexpected data
+                        
+                        print(f"  Failed to parse events for {today.strftime('%Y-%m-%d')} in update_date. API Status: {current_status_val}. Message: '{current_error_msg}'")
                     self.event_label.setText("مناسبت: " + ", ".join(ev) if ev else "مناسبت: ---")
                     self._save_event_to_cache(today, ev)
                     # --- Automatic background cache for surrounding days ---
@@ -866,6 +938,18 @@ class CalendarWidget(QWidget):
             # Use a subtle version of flat_hover_bg for consistency
             hover_bg = scheme['flat_hover_bg'].name(QColor.NameFormat.HexArgb) 
             self.top_settings_btn.setStyleSheet(f"""
+                QPushButton {{ background:none; border:none; padding:0px; color:{text_color}; }}
+                QPushButton:hover {{ background-color: {hover_bg}; border-radius: 4px; }}""")
+
+        # Today icon button hover style
+        if hasattr(self, 'today_icon_btn'):
+            self.today_icon_btn.setStyleSheet(f"""
+                QPushButton {{ background:none; border:none; padding:0px; color:{text_color}; }}
+                QPushButton:hover {{ background-color: {hover_bg}; border-radius: 4px; }}""")
+
+        # Center icon button hover style
+        if hasattr(self, 'center_icon_btn'):
+            self.center_icon_btn.setStyleSheet(f"""
                 QPushButton {{ background:none; border:none; padding:0px; color:{text_color}; }}
                 QPushButton:hover {{ background-color: {hover_bg}; border-radius: 4px; }}""")
 
