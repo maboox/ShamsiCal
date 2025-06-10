@@ -68,3 +68,4 @@ nbproject/
 # OS specific files
 .DS_Store
 Thumbs.db
+events_cache.json
