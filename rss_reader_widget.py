@@ -7,6 +7,17 @@ from PyQt6.QtWidgets import (
 from openai import OpenAI
 import requests
 from newspaper import Article, ArticleException
+import newspaper.extractors
+
+# Monkey-patch for a known bug in newspaper3k where a directory name is misspelled ('recources').
+# This can cause a FileNotFoundError when the library tries to access this directory.
+# See: https://github.com/codelucas/newspaper/issues/805
+try:
+    if hasattr(newspaper.extractors, 'RESOURCES_DIR') and 'recources' in newspaper.extractors.RESOURCES_DIR:
+        newspaper.extractors.RESOURCES_DIR = newspaper.extractors.RESOURCES_DIR.replace('recources', 'resources')
+except (AttributeError, ImportError):
+    # If the attribute or module doesn't exist, we assume it's not needed (e.g., fixed version).
+    pass
 from PyQt6.QtGui import QFont, QColor, QDesktopServices, QAction, QPainter, QBrush, QPen
 from PyQt6.QtCore import Qt, QPoint, QSettings, QTimer, QUrl
 import feedparser
