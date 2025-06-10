@@ -14,6 +14,7 @@ A customizable desktop widget suite centered around a multi-calendar display (Ja
     *   Compact mode for a minimalist view.
     *   Draggable, frameless windows.
     *   All preferences (theme, positions, etc.) are saved.
+    *   **Change Application Font:** To change the font used throughout the application, open the `shamsi_calendar_widget.pyw` file in a text editor. Find the line `DEFAULT_FONT_FAMILY = "DanaFaNum"` (or similar) and replace `"DanaFaNum"` with the name of your desired font installed on your system (e.g., `"Arial"`, `"Tahoma"`).
 
 ## Additional Widgets (Optional)
 
