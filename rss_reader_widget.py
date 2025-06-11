@@ -510,7 +510,8 @@ class RSSReaderWidget(QWidget):
             # Configure the article object, disable memoization for fresh fetches if needed
             # Newspaper3k uses requests internally, so User-Agent might be set by its defaults
             # or can be configured if necessary.
-            article = Article(url, language='en') # Specify language if known, helps with parsing
+            # Disable article caching to prevent potential path errors with the cache.
+            article = Article(url, language='en', memoize_articles=False) # Specify language, disable caching
             article.download()
             article.parse()
             
