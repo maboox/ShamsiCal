@@ -736,7 +736,10 @@ class CalendarWidget(QWidget):
         self.init_quote_widget() # Create/show quote widget
         self.init_rss_widget() # Create/show rss widget
         self.apply_theme_stylesheet()
-        self.load_position() 
+        
+        # Load position and remember if it was successful
+        self._position_loaded = self.load_position()
+        
         self.build_ui()
 
     def paintEvent(self, event: QPaintEvent):
@@ -800,19 +803,28 @@ class CalendarWidget(QWidget):
             self.rss_widget.apply_theme()
 
     def load_position(self):
+        # Try to restore position from settings first
+        pos_string = self.settings.value("main_widget/pos", "")
+        if pos_string:
+            try:
+                x, y = map(int, pos_string.split(','))
+                self.move(x, y)
+                return True
+            except:
+                pass
+                
+        # If no position or parsing failed, fall back to geometry
         geometry = self.settings.value("geometry", None)
         if geometry:
             self.restoreGeometry(geometry)
+            return True
+            
+        return False
 
-    def _clear_layout_widgets(self, layout):
-        if layout is None: return
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget()
-            if widget: widget.deleteLater()
-            else:
-                sub_layout = item.layout()
-                if sub_layout: self._clear_layout_widgets(sub_layout); sub_layout.deleteLater() 
+    def save_position(self):
+        # Save the current position
+        pos = self.pos()
+        self.settings.setValue("main_widget/pos", f"{pos.x()},{pos.y()}")
 
     def build_ui(self):
         if self.layout() is not None:
@@ -903,7 +915,12 @@ class CalendarWidget(QWidget):
 
         self.setLayout(main_layout)
         self.update_date()
-        if not self.settings.value("pos"): self.center_on_screen()
+        
+        # Only center the widget if no position was loaded during initialization
+        if not hasattr(self, '_position_loaded') or not self._position_loaded:
+            self.center_on_screen()
+            # Save this position as the default
+            self.save_position()
 
     def update_date(self):
         today = jdatetime.date.today() + jdatetime.timedelta(days=self.offset)
@@ -1458,9 +1475,12 @@ class CalendarWidget(QWidget):
             delta = QPoint(e.globalPosition().toPoint() - self.old_pos)
             self.move(self.x() + delta.x(), self.y() + delta.y())
             self.old_pos = e.globalPosition().toPoint()
+            # Save position after moving
+            self.save_position()
             e.accept()
         else:
             super().mouseMoveEvent(e)
+            e.accept()
 
     def mouseReleaseEvent(self, e: QMouseEvent):
         if e.button() == Qt.MouseButton.LeftButton:
@@ -1473,6 +1493,8 @@ class CalendarWidget(QWidget):
     def closeEvent(self, event):
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("windowState", self.saveState())
+        # Make sure to save current position
+        self.save_position()
         if hasattr(self, 'quote_widget') and self.quote_widget:
             self.quote_widget.save_settings()
         if hasattr(self, 'rss_widget') and self.rss_widget:
