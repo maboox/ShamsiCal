@@ -91,6 +91,16 @@ Once running, right-click on the calendar widget to access settings and to show/
 2. Create a shortcut to `shamsi_calendar_widget.pyw` (in your `ShamsiCal` folder) and place it in the Startup folder.
 3. Alternatively, create a batch file (`.bat`) with the command `python path\to\shamsi_calendar_widget.pyw` and place it in the Startup folder.
 
+## Customization Limitations with Executable Version
+
+While the standalone executable provides full functionality, some deep customizations require access to the source code:
+
+- **Font Family**: The executable uses the default font family. To change it, you need the source code version.
+- **Custom Icons**: Adding or changing icons requires rebuilding from source.
+- **Code-Level Changes**: Any modifications to the underlying code require the source version.
+
+If you need these customizations, please use the source code installation method described above.
+
 ## Building the Executable (For Developers)
 
 If you want to build the standalone executable yourself:
