@@ -38,13 +38,24 @@ A customizable desktop widget suite centered around a multi-calendar display (Ja
 
 ## Installation
 
-1.  **Get the Code:**
-    *   Clone: `git clone https://github.com/maboox/ShamsiCal.git`
-    *   Or download and extract the ZIP from the GitHub project page.
-2.  **Navigate to Directory:** `cd ShamsiCal`
-3.  **Install Python (if needed):**
-    *   Download from [python.org](https://www.python.org/). Ensure Python is added to PATH.
-4.  **Install Dependencies:** `pip install -r requirements.txt`
+### Option 1: Standalone Executable (Recommended for most users)
+
+1. **Download the Executable:**
+   * Go to the [Releases](https://github.com/maboox/ShamsiCal/releases) page on GitHub
+   * Download the latest `ShamsiCalendar.zip` file
+   * Extract the ZIP file to a location of your choice
+   * Double-click `ShamsiCalendar.exe` to run the application
+
+### Option 2: From Source Code (For developers or advanced users)
+
+1. **Get the Code:**
+   * Clone: `git clone https://github.com/maboox/ShamsiCal.git`
+   * Or download and extract the ZIP from the GitHub project page
+2. **Navigate to Directory:** `cd ShamsiCal`
+3. **Install Python (if needed):**
+   * Download from [python.org](https://www.python.org/). Ensure Python is added to PATH
+4. **Install Dependencies:** `pip install -r requirements.txt`
+5. **Run the Application:** `python shamsi_calendar_widget.pyw`
 
 ## AI Feature Setup (for RSS Reader - Optional)
 
@@ -58,15 +69,39 @@ The AI summarization/translation for the RSS reader uses the Together.AI API.
 
 ## Running the Application
 
+### For Standalone Executable Users
+Simply double-click the `ShamsiCalendar.exe` file you extracted from the ZIP file. The main calendar widget will appear.
+
+### For Source Code Users
 In the `ShamsiCal` directory, run:
 ```bash
 python shamsi_calendar_widget.pyw
 ```
-The main calendar widget will appear. Right-click it for settings and to show/hide other widgets.
+
+Once running, right-click on the calendar widget to access settings and to show/hide other widgets (notes, RSS reader, quotes).
 
 ## Auto-Start on Windows (Optional)
 
-1.  Press `Windows Key + R`, type `shell:startup`, press Enter.
-2.  Create a shortcut to `shamsi_calendar_widget.pyw` (in your `ShamsiCal` folder) and place it in the Startup folder.
+### For Standalone Executable Users
+1. Press `Windows Key + R`, type `shell:startup`, press Enter.
+2. Create a shortcut to `ShamsiCalendar.exe` and place it in the Startup folder.
+
+### For Source Code Users
+1. Press `Windows Key + R`, type `shell:startup`, press Enter.
+2. Create a shortcut to `shamsi_calendar_widget.pyw` (in your `ShamsiCal` folder) and place it in the Startup folder.
+3. Alternatively, create a batch file (`.bat`) with the command `python path\to\shamsi_calendar_widget.pyw` and place it in the Startup folder.
+
+## Building the Executable (For Developers)
+
+If you want to build the standalone executable yourself:
+
+1. Make sure you have PyInstaller installed: `pip install pyinstaller`
+2. Run the build script: `python build_exe.py`
+3. The executable will be created in the `dist` folder
+4. To create a release:
+   * Compress the executable into a ZIP file
+   * Go to your GitHub repository
+   * Click on 'Releases' > 'Create a new release'
+   * Upload the ZIP file as a release asset
 
 ---
