@@ -1,6 +1,6 @@
 # ShamsiCal Persian Desktop Widgets
 
-A customizable desktop widget suite centered around a multi-calendar display (Jalali, Gregorian, Hijri) with daily events. It also includes an optional RSS feed reader with AI-powered summarization/translation and a quote display widget. Built with Python and PyQt6.
+A customizable desktop widget suite centered around a multi-calendar display (Jalali, Gregorian, Hijri) with daily events. It also includes an optional RSS feed reader with AI-powered summarization/translation, a quote display widget, and a note-taking system. Built with Python and PyQt6.
 
 ## Core Features
 
@@ -18,6 +18,12 @@ A customizable desktop widget suite centered around a multi-calendar display (Ja
 
 ## Additional Widgets (Optional)
 
+*   **Note Manager:**
+    *   Tabbed note-taking interface with rich text formatting.
+    *   Create to-do lists with interactive checkboxes.
+    *   Format text (bold, italic, underline) and create bulleted or numbered lists.
+    *   Notes are automatically saved and persist between sessions.
+    *   Consistent theming with the main application.
 *   **RSS Feed Reader:**
     *   Display news from your favorite RSS feeds.
     *   Manage multiple feeds with per-feed text direction (RTL/LTR).

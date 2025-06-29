@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QMenu, QGraphicsDropShadowEffect, QInputDialog,
     QDialog, QListWidget, QLineEdit, QDialogButtonBox, QListWidgetItem,
-    QSizePolicy, QStyle
+    QSizePolicy, QStyle, QTextEdit
 )
 from PyQt6.QtGui import QFont, QIcon, QAction, QColor, QActionGroup, QPainter, QBrush, QPen, QMouseEvent, QContextMenuEvent, QPaintEvent
 from PyQt6.QtCore import Qt, QPoint, QSettings, QTimer, QDateTime # Removed QSize as it's not used
@@ -12,6 +12,8 @@ import time
 import requests
 from hijri_converter import Gregorian
 from rss_reader_widget import RSSReaderWidget, RSS_BOX_WIDTHS, DEFAULT_RSS_BOX_WIDTH_KEY, ManageRSSFeedsDialog
+from note_widget import TabbedNoteManager
+
 import sys
 import json
 import os
@@ -35,12 +37,14 @@ color_schemes = {
         'menu_selected_bg': QColor(0, 120, 215, 200), 'menu_selected_text': QColor("white"),
     },
     'Light': {
-        'name_fa': 'روشن', 'widget_bg': QColor(245,245,245,220), 'widget_text': QColor("black"),
-        'box_bg': QColor(220,220,220,200), 'box_text': QColor(40,40,40), 'box_border': QColor(180,180,180),
-        'box_bg_hover': QColor(220,220,220,210),
+        'name_fa': 'روشن', 'widget_bg': QColor(245,245,245,220), 'widget_text': QColor(0,0,0), # Pure black text for contrast
+        'box_bg': QColor(220,220,220,200), 'box_text': QColor(0,0,0), # Pure black text for contrast
+        'box_border': QColor(180,180,180),
+        'box_bg_hover': QColor(200,200,200,210), # Darker hover for better visibility
         'flat_hover_bg': QColor(200,200,200,100),
         'flat_element_hover_bg': QColor(190,190,190,120), # Hover for flat elements inside a boxed parent
-        'menu_bg': QColor(240,240,240,240), 'menu_text': QColor(30,30,30), 'menu_border': QColor(200,200,200),
+        'menu_bg': QColor(240,240,240,240), 'menu_text': QColor(0,0,0), # Pure black text for contrast
+        'menu_border': QColor(200,200,200),
         'menu_selected_bg': QColor(0, 120, 215, 200), 'menu_selected_text': QColor("white"),
     },
     'Nordic Blue': {
@@ -735,6 +739,10 @@ class CalendarWidget(QWidget):
 
         self.init_quote_widget() # Create/show quote widget
         self.init_rss_widget() # Create/show rss widget
+
+        # --- Note Manager Initialization ---
+        self.note_manager = None
+
         self.apply_theme_stylesheet()
         
         # Load position and remember if it was successful
@@ -801,6 +809,8 @@ class CalendarWidget(QWidget):
             self.quote_widget.apply_theme()
         if hasattr(self, 'rss_widget') and self.rss_widget:
             self.rss_widget.apply_theme()
+        if hasattr(self, 'note_manager') and self.note_manager:
+            self.note_manager.apply_theme(scheme, self.boxed_style)
 
     def load_position(self):
         # Try to restore position from settings first
@@ -1173,6 +1183,12 @@ class CalendarWidget(QWidget):
         rss_settings_menu.addMenu(rss_width_menu)
 
         menu.addMenu(rss_settings_menu)
+
+        # --- Notes Menu ---
+        notes_action = QAction("📝 مدیریت یادداشت ها", menu)
+        notes_action.triggered.connect(self._show_or_create_note_manager)
+        menu.addAction(notes_action)
+
         menu.addSeparator()
 
         # Add Go to Today and Center Window actions (replacing old buttons)
@@ -1197,12 +1213,21 @@ class CalendarWidget(QWidget):
         self.settings.setValue("color_scheme", k)
         self.apply_theme_stylesheet()
         self.update_date()
-        # Also update the quote widget if it exists
+        
+        # Get the current color scheme
+        scheme = color_schemes[self.active_scheme_key]
+        
+        # Update the quote widget if it exists
         if hasattr(self, 'quote_widget') and self.quote_widget:
             self.quote_widget.apply_theme()
-        # Also update the RSS widget if it exists
+            
+        # Update the RSS widget if it exists
         if hasattr(self, 'rss_widget') and self.rss_widget:
             self.rss_widget.apply_theme()
+            
+        # Update the note manager if it exists
+        if hasattr(self, 'note_manager') and self.note_manager:
+            self.note_manager.apply_theme(scheme, self.boxed_style)
 
     def get_current_color_scheme(self):
         """Returns the currently active color scheme dictionary."""
@@ -1213,6 +1238,9 @@ class CalendarWidget(QWidget):
         print(f"[CalendarWidget] Toggling box style to: {self.boxed_style}") # Debug
         self.settings.setValue("boxed", "yes" if self.boxed_style else "no")
         self.build_ui()
+        
+        # Get the current color scheme
+        scheme = color_schemes[self.active_scheme_key]
         
         # Complete recreation of the quote widget when box style changes
         if hasattr(self, 'quote_widget') and self.quote_widget:
@@ -1257,6 +1285,11 @@ class CalendarWidget(QWidget):
             if rss_was_visible:
                 self.rss_widget.show()
                 self.rss_widget.raise_()
+                
+        # Update the note manager theme if it exists
+        if hasattr(self, 'note_manager') and self.note_manager:
+            print(f"[CalendarWidget] Updating note_manager with boxed_style = {self.boxed_style}")
+            self.note_manager.apply_theme(scheme, self.boxed_style)
 
     def toggle_compact(self):self.compact_mode=not self.compact_mode;self.settings.setValue("compact","yes" if self.compact_mode else "no");self.build_ui() 
     def set_font_size(self, lbl):
@@ -1264,10 +1297,22 @@ class CalendarWidget(QWidget):
         self.font_pt = font_sizes[lbl]
         self.settings.setValue("font_size", lbl)
         self.build_ui()
+        
+        # Get the current color scheme
+        scheme = color_schemes[self.active_scheme_key]
+        
+        # Update the quote widget if it exists
         if hasattr(self, 'quote_widget') and self.quote_widget:
             self.quote_widget.update_display_settings(font_pt=self.font_pt)
+            
+        # Update the RSS widget if it exists
         if hasattr(self, 'rss_widget') and self.rss_widget:
-            self.rss_widget.update_display_settings(font_pt=self.font_pt) 
+            self.rss_widget.update_display_settings(font_pt=self.font_pt)
+            
+        # Update the note manager if it exists
+        if hasattr(self, 'note_manager') and self.note_manager:
+            # Re-apply the theme to ensure proper font sizing
+            self.note_manager.apply_theme(scheme, self.boxed_style)
 
     def _handle_quote_frequency_change(self):
         action = self.sender()
@@ -1345,27 +1390,14 @@ class CalendarWidget(QWidget):
 
     def toggle_rss_widget_visibility_action(self):
         if not hasattr(self, 'rss_widget') or not self.rss_widget:
-            self.init_rss_widget() # Ensure it's created if called early
-            if not self.rss_widget: # Still not created, something is wrong
-                print("[CalendarWidget] Error: RSS Widget could not be initialized for toggling visibility.")
-                if hasattr(self, 'toggle_rss_action'): 
-                    self.toggle_rss_action.setChecked(False) 
-                return
+            self.init_rss_widget()
 
-        is_visible = not self.rss_widget.isVisible()
-        self.rss_widget.setVisible(is_visible)
-        self.settings.setValue("rss_widget/is_visible", is_visible)
-        if hasattr(self, 'toggle_rss_action'): 
-            self.toggle_rss_action.setChecked(is_visible)
-        
-        if self.settings.value("rss_widget/auto_adjust_calendar_size", True, type=bool):
-            if hasattr(self, 'adjust_calendar_size_for_rss_widget') and callable(getattr(self, 'adjust_calendar_size_for_rss_widget')):
-                 self.adjust_calendar_size_for_rss_widget()
-            else:
-                 # print("[CalendarWidget] adjust_calendar_size_for_rss_widget not found/callable, falling back to adjustSize().")
-                 self.adjustSize() 
-
-        # print(f"[CalendarWidget] RSS widget visibility toggled to: {is_visible}")
+        if hasattr(self, 'rss_widget') and self.rss_widget:
+            is_now_visible = not self.rss_widget.isVisible()
+            self.rss_widget.setVisible(is_now_visible)
+            self.settings.setValue("rss_widget/is_visible", is_now_visible)
+            if is_now_visible:
+                self.rss_widget.raise_()
 
     def _show_manage_rss_feeds_dialog(self):
         if not hasattr(self, 'rss_widget') or not self.rss_widget:
@@ -1475,30 +1507,26 @@ class CalendarWidget(QWidget):
             delta = QPoint(e.globalPosition().toPoint() - self.old_pos)
             self.move(self.x() + delta.x(), self.y() + delta.y())
             self.old_pos = e.globalPosition().toPoint()
-            # Save position after moving
-            self.save_position()
             e.accept()
         else:
             super().mouseMoveEvent(e)
-            e.accept()
 
     def mouseReleaseEvent(self, e: QMouseEvent):
         if e.button() == Qt.MouseButton.LeftButton:
             self.old_pos = None
+            self.save_position() # Save position only when drag is finished
             e.accept()
         else:
             super().mouseReleaseEvent(e)
 
-
     def closeEvent(self, event):
-        self.settings.setValue("geometry", self.saveGeometry())
-        self.settings.setValue("windowState", self.saveState())
-        # Make sure to save current position
-        self.save_position()
+        self.save_position() # Use the correct method to save position
         if hasattr(self, 'quote_widget') and self.quote_widget:
             self.quote_widget.save_settings()
         if hasattr(self, 'rss_widget') and self.rss_widget:
             self.rss_widget.save_settings()
+        if self.note_manager:
+            self.save_note_manager_state()
         super().closeEvent(event)
         QApplication.instance().quit() # Ensure application exits
 
@@ -1520,9 +1548,110 @@ class CalendarWidget(QWidget):
         elif event.key() == Qt.Key.Key_Home:
             self.go_today()
         elif event.key() == Qt.Key.Key_M and (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-            if hasattr(self, '_show_manage_rss_feeds_dialog'): self._show_manage_rss_feeds_dialog()
+            self._show_or_create_note_manager()
         else:
             super().keyPressEvent(event)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # This ensures that if the note manager was open when the app was closed,
+        # it reappears when the app is launched. We only want to do this once.
+        if not hasattr(self, '_initial_show_event_complete'):
+            self._initial_show_event_complete = True
+            if self.settings.value("note_manager/is_visible", False, type=bool):
+                self._show_or_create_note_manager()
+
+    # --- Note Manager Methods ---
+    def _show_or_create_note_manager(self):
+        # If the note manager exists but is not visible, it might have been closed
+        # and needs to be recreated to avoid the invisible UI issue
+        if self.note_manager is not None and not self.note_manager.isVisible():
+            # Save state before destroying
+            self.save_note_manager_state()
+            # Delete the old instance
+            self.note_manager.deleteLater()
+            self.note_manager = None
+            
+        # Create a new note manager if needed
+        if self.note_manager is None:
+            # Pass theme info and set parent to None for an independent window
+            self.note_manager = TabbedNoteManager(
+                theme_scheme=color_schemes[self.active_scheme_key], 
+                boxed_style=self.boxed_style, 
+                parent=None
+            )
+            # Connect the new signal to save visibility state when closed
+            self.note_manager.closed.connect(self.on_note_manager_closed)
+            self.load_note_manager_state()
+        
+        # Make sure the note manager is visible and properly themed
+        self.note_manager.apply_theme(color_schemes[self.active_scheme_key], self.boxed_style)
+        self.note_manager.show()
+        self.note_manager.raise_()
+        self.note_manager.activateWindow()
+
+    def on_note_manager_closed(self):
+        # This slot is called when the note manager's own close button is clicked.
+        # We save its visibility state and note content immediately.
+        if self.note_manager:
+            # Save all note manager state
+            self.save_note_manager_state()
+            # Update visibility state
+            self.settings.setValue("note_manager/is_visible", False)
+
+    def save_note_manager_state(self):
+        if self.note_manager is None:
+            return
+
+        self.settings.setValue("note_manager/geometry", self.note_manager.saveGeometry())
+        self.settings.setValue("note_manager/is_visible", self.note_manager.isVisible())
+        
+        # Ensure there are tabs to save before proceeding
+        if self.note_manager.tab_widget.count() > 0:
+            self.settings.beginWriteArray("note_tabs")
+            for i in range(self.note_manager.tab_widget.count()):
+                self.settings.setArrayIndex(i)
+                tab_content_widget = self.note_manager.tab_widget.widget(i)
+                if isinstance(tab_content_widget, QTextEdit):
+                    self.settings.setValue("title", self.note_manager.tab_widget.tabText(i))
+                    self.settings.setValue("content", tab_content_widget.toHtml())
+            self.settings.endArray()
+        else:
+            # If there are no tabs, clear the saved array
+            self.settings.remove("note_tabs")
+
+    def load_note_manager_state(self):
+        if self.note_manager is None:
+            return
+
+        geom = self.settings.value("note_manager/geometry")
+        if geom:
+            self.note_manager.restoreGeometry(geom)
+
+        # Clear the default tab that gets created with the widget
+        self.note_manager.tab_widget.clear()
+        self.note_manager.note_counter = 0
+
+        count = self.settings.beginReadArray("note_tabs")
+        if count == 0: # If no saved tabs, create a default one
+            self.note_manager.add_new_tab()
+        else:
+            for i in range(count):
+                self.settings.setArrayIndex(i)
+                title = self.settings.value("title", "")
+                content = self.settings.value("content", "")
+                self.note_manager.add_new_tab(title=title, content=content)
+        self.settings.endArray()
+
 if __name__ == "__main__":
-    app=QApplication(sys.argv);w=CalendarWidget();w.show();sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    # Set a fallback font for systems that don't have the primary one
+    try:
+        QFont(DEFAULT_FONT_FAMILY)
+    except Exception:
+        print(f"Warning: Font '{DEFAULT_FONT_FAMILY}' not found. Falling back to system default.")
+        # The system will use a default font, no explicit action needed for QApplication
+    
+    main_widget = CalendarWidget()
+    main_widget.show()
+    sys.exit(app.exec())
