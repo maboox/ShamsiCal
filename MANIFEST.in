@@ -1,0 +1,9 @@
+include LICENSE README.md README.fa.md CHANGELOG.md THIRD_PARTY_NOTICES.md
+include requirements.lock requirements-dev.txt
+include requirements.txt
+include build_exe.py shamsi_calendar_widget.pyw CONTRIBUTING.md SECURITY.md
+recursive-include docs *.md *.png
+recursive-include tests *.py
+recursive-include tools *.py
+recursive-include tools *.txt
+recursive-include shamsical/assets *.ttf *.txt *.png *.ico

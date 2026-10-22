@@ -1,0 +1,26 @@
+name: Bug report / گزارش خطا
+description: Report a reproducible problem using synthetic data.
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include API keys, private notes, workspace files, or token-bearing URLs. Use the private security channel for vulnerabilities."
+  - type: input
+    id: version
+    attributes:
+      label: App version and OS
+      placeholder: ShamsiCal 2.0.0, Windows 11 x64
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / مراحل تکرار خطا
+      description: Use a fresh workspace and example content where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true

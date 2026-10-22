@@ -69,3 +69,16 @@ nbproject/
 .DS_Store
 Thumbs.db
 events_cache.json
+workspace.json*
+workspace.lock
+.workspace-*
+*.bak
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.zip
+artifacts/
+.ruff_cache/
