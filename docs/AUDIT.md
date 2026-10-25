@@ -1,4 +1,14 @@
-# Release audit — 2.0.0
+# Release audit
+
+## 2.1.0 — Desktop-widget correction
+
+The 2.0 UI incorrectly replaced the original independent widgets with a tabbed window. Version 2.1 restores the product model: independent frameless calendar, quote, note, and reader windows; saved positions/sizes/visibility; transparent backgrounds; optional topmost behavior; tray recovery; and a separate settings dialog. The month view is an optional extra widget.
+
+Existing 2.0 data and backups remain readable. A separate v1-layout importer reads only whitelisted geometry and visibility values and clamps them to an available screen. New tests cover widget identity, independent hiding, dragging, restart persistence, settings/data retention, compact mode, no-tray recovery, and malformed layout data. Network and credential protections remain in place.
+
+Local regression verification passed 66 tests, including the original network and data-safety checks plus the desktop-widget behavior checks.
+
+## 2.0.0 review record
 
 This is a maintenance review and regression record, not an independent penetration test or a promise that the software is vulnerability-free.
 
@@ -15,7 +25,7 @@ This is a maintenance review and regression record, not an independent penetrati
 | Rich text could load external or local image resources | Private document resource loader and plain-text news/AI display |
 | Closing/deleting the last note could discard text without warning | Explicit delete confirmation, persistent note list, final save, visible save failure |
 | Cache paths were tied to source/frozen application directories | OS app-data directory and an explicit isolated-workspace option |
-| Duplicate UI functions, missing icon resources, obscure context-menu-only navigation | Modular tabs, visible controls, packaged fonts/icons, two blue themes and bilingual layout |
+| Duplicate UI functions, missing icon resources, obscure context-menu-only navigation | Packaged fonts/icons and blue bilingual styling; the tabbed UI introduced here was corrected back to independent widgets in 2.1 |
 | No automated checks or clear release/dependency policy | Regression suite, lint/format checks, pinned runtime hashes, vulnerability audit, secret scanning, portable release build |
 
 ## Review coverage

@@ -61,6 +61,7 @@ def stylesheet(theme, size):
     QScrollBar:vertical {{ background: {p["bg"]}; width: 10px; }}
     QScrollBar::handle:vertical {{ background: {p["border"]}; min-height: 32px; border-radius: 5px; }}
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
     QCheckBox {{ padding: 8px 0; spacing: 10px; }}
     QCheckBox::indicator {{ width: 20px; height: 20px; }}
     QStatusBar {{ background: {p["bg"]}; color: {p["muted"]}; border-top: 1px solid {p["border"]}; }}

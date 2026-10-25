@@ -17,7 +17,7 @@ No notes or backups are included in these requests. RSS queries can contain priv
 
 News articles are kept in memory only. AI keys are read from `TOGETHER_API_KEY` at request time and are never intentionally written to settings, logs, exports, or cache. The optional model is read from `SHAMSICAL_AI_MODEL`. The app does not print provider exceptions or token-bearing request details. OS crash dumps and sufficiently privileged local processes are outside this protection.
 
-The v1 importer reads only note titles and HTML from the old settings. A separate explicit action removes `togetherai/api_token` from v1 settings; rotation at Together remains necessary for a previously exposed key. It does not scrub old device backups.
+The v1 note importer reads only note titles and HTML from the old settings. A separate layout importer reads only known widget geometry and visibility fields; neither imports credentials. A separate explicit action removes `togetherai/api_token` from v1 settings; rotation at Together remains necessary for a previously exposed key. It does not scrub old device backups.
 
 ## Transport and rendering
 

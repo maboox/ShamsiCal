@@ -33,6 +33,6 @@ Dependency changes belong in `pyproject.toml`. After installing the candidate ve
 
 ## Windows release
 
-Run `python build_exe.py` on Windows after all checks pass. It builds a directory-based portable app, collects licenses, and produces a versioned ZIP plus SHA-256 companion in `dist/`. It never bundles workspace data or automatically installs dependencies. Run `python tools/verify_release.py dist/ShamsiCal-2.0.0-windows-x64.zip` to verify the checksum, package contents, and extracted app startup using a temporary workspace. Keep the source archive for the exact tag available alongside the binary under GPL-3.0-or-later.
+Run `python build_exe.py` on Windows after all checks pass. It builds a directory-based portable app, collects licenses, and produces a versioned ZIP plus SHA-256 companion in `dist/`. It never bundles workspace data or automatically installs dependencies. Run `python tools/verify_release.py dist/ShamsiCal-2.1.0-windows-x64.zip` to verify the checksum, package contents, and extracted app startup using a temporary workspace. Keep the source archive for the exact tag available alongside the binary under GPL-3.0-or-later.
 
 Update the package version, `tools/windows_version.txt`, changelog, README download filename, and release notes together. Build automation uploads artifacts for review; only a maintainer publishes a GitHub release. Do not claim the binaries are signed or bit-for-bit reproducible.

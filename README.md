@@ -12,32 +12,33 @@
   <img src="https://img.shields.io/badge/Python-3.11+-436b9d?logo=python&logoColor=white" alt="Python 3.11 or newer">
 </p>
 
-ShamsiCal is a bilingual Persian desktop calendar with a quiet blue workspace for dates, notes, and reading. Jalali dates come first; Gregorian and Umm al-Qura Hijri dates stay close by. Your calendar and notes work without an account or internet connection.
+ShamsiCal is a set of lightweight, independent Persian desktop widgets: a daily calendar, quotes, notes, and an RSS reader. Each widget floats on your desktop without a normal window frame, can be dragged and resized separately, and remembers its own position and visibility. Jalali dates come first; Gregorian and Umm al-Qura Hijri dates stay close by. Your calendar and notes work without an account or internet connection.
 
 <div dir="rtl">
 
-**شمسی‌کَل** یک تقویم رومیزی فارسی و انگلیسی با فضای آبی برای تاریخ، یادداشت و خبرخوان است. تقویم و یادداشت بدون اینترنت کار می‌کنند؛ ارتباط آنلاین اختیاری است. [راهنمای کامل فارسی ←](README.fa.md)
+**شمسی‌کَل** مجموعه‌ای از ویجت‌های مستقل تقویم، نقل‌قول، یادداشت و خبرخوان روی دسکتاپ است؛ هر ویجت جدا جابه‌جا و پنهان می‌شود و جای خود را به خاطر می‌سپارد. تقویم و یادداشت بدون اینترنت کار می‌کنند؛ ارتباط آنلاین اختیاری است. [راهنمای کامل فارسی ←](README.fa.md)
 
 </div>
 
-![Actual Persian interface, ocean theme](docs/images/calendar-fa.png)
+![Actual Persian interface, ocean theme](docs/images/widgets-fa.png)
 
 ### A small space for your day
 
 | Calendar | Notes | Reading |
 | --- | --- | --- |
-| Saturday-first Jalali month grid | Rich text and multiple notes | Add your own HTTPS RSS/Atom feeds |
+| Small daily widget + optional month widget | Rich text and multiple notes | Add your own HTTPS RSS/Atom feeds |
 | Gregorian dates in every day cell | Bold, italic, and checklists | Fetch on demand without blocking the UI |
 | Day/month navigation and date jump | Local autosave and previous-save backup | Read sanitized excerpts or open the original |
 | Midnight rollover and compact view | Export, restore, and import v1 notes | Optional Persian AI summaries after confirmation |
 
+- **Desktop widgets first.** Calendar and quotes appear by default; notes and RSS are optional. Drag a widget by its header, resize from its corner, and use its menu or the tray icon to show/hide widgets. Settings also offers transparent backgrounds, opacity, and optional always-on-top behavior.
 - **Made for both directions.** Persian RTL and English LTR, ocean and daylight blue themes, adjustable text, bundled Vazirmatn typography, and Phosphor icons through QtAwesome.
 - **Private by default.** No telemetry, ads, login, or automatic feed fetching. Online events are off until enabled. Notes are stored locally **without encryption**; protect your device and exported backups.
 - **Safer network behavior.** Verified HTTPS, public-address checks for each redirect, DNS-rebinding protection, response-size limits, and text-only news display. [Privacy details](docs/PRIVACY.md).
 
 ### Get started
 
-**Windows 10/11, 64-bit:** download `ShamsiCal-2.0.0-windows-x64.zip` from [Releases](https://github.com/maboox/ShamsiCal/releases/latest), extract the entire archive, and open `ShamsiCal/ShamsiCal.exe`. Keep the `_internal` folder beside it. Python is not required. The executable is unsigned; verify its SHA-256 against the supplied checksum before opening it.
+**Windows 10/11, 64-bit:** download `ShamsiCal-2.1.0-windows-x64.zip` from [Releases](https://github.com/maboox/ShamsiCal/releases/latest), extract the entire archive, and open `ShamsiCal/ShamsiCal.exe`. Keep the `_internal` folder beside it. Python is not required. The executable is unsigned; verify its SHA-256 against the supplied checksum before opening it.
 
 **From source** — Python 3.11+, in a fresh virtual environment:
 
@@ -56,7 +57,7 @@ The compatibility launcher `python shamsi_calendar_widget.pyw` also works. For d
 
 ### Moving from version 1
 
-Version 2 uses a separate data location and leaves old settings intact. Open **Settings → Import v1 notes** to copy existing notes. Old API keys and settings are never imported. Use **Remove v1 saved API key** to delete the plaintext key stored by the old app, then rotate it at the provider. [Migration and recovery](docs/USER_GUIDE.md#data-backups-and-migration).
+Version 2.1 restores the original independent-widget workflow. Existing 2.0 notes, feeds, and backups are retained automatically; its old large-window geometry is ignored. Version 1 uses a separate data location and its settings remain intact. Open **Settings → Import v1 notes** to copy existing notes. Old API keys are never imported. A separate Import v1 widget layout action can recover v1 positions and visibility. Use **Remove v1 saved API key** to delete the plaintext key stored by the old app, then rotate it at the provider. [Migration and recovery](docs/USER_GUIDE.md#data-backups-and-migration).
 
 ### Optional online features
 
@@ -67,7 +68,7 @@ The AI button sends **only the selected article's title and feed excerpt** to To
 <details>
 <summary>Daylight theme and notes</summary>
 
-![Actual English interface, daylight theme](docs/images/calendar-en.png)
+![Actual English interface, daylight theme](docs/images/widgets-en.png)
 ![Actual notes interface with synthetic example content](docs/images/notes-fa.png)
 
 </details>

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shamsical"
-version = "2.0.0"
+version = "2.1.0"
 description = "A bilingual, privacy-minded Jalali desktop calendar with notes and RSS"
 readme = "README.md"
 requires-python = ">=3.11"

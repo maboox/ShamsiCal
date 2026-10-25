@@ -65,3 +65,23 @@ def test_export_refuses_live_data_file(tmp_path):
         store.export(store.path)
     store.export(tmp_path / "export.json")
     assert json.loads((tmp_path / "export.json").read_text(encoding="utf-8"))["schema"] == 1
+
+
+def test_v2_workspace_gets_widget_defaults_without_losing_notes(tmp_path):
+    data = {"schema": 1, "notes": [{"title": "Existing", "html": "<p>Keep me</p>"}]}
+    (tmp_path / "workspace.json").write_text(json.dumps(data), encoding="utf-8")
+    store = Store(tmp_path)
+    assert store.data["notes"] == data["notes"]
+    assert store.data["widgets"] == {}
+    assert store.data["widget_background"] is True
+
+
+@pytest.mark.parametrize(
+    "state",
+    [{"calendar": {"visible": "yes"}}, {"notes": {"x": "50"}}, {"reader": {"width": -1}}, {"unknown": {}}],
+)
+def test_invalid_widget_layout_rejected(state):
+    data = copy.deepcopy(DEFAULTS)
+    data["widgets"] = state
+    with pytest.raises(StorageError):
+        validate(data)

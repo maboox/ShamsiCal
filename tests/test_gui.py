@@ -2,8 +2,9 @@ import threading
 
 import jdatetime
 import pytest
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt, QUrl
+from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtWidgets import QApplication, QMessageBox, QTabWidget
 
 from shamsical import calendar, network
 from shamsical.app import Window
@@ -19,12 +20,13 @@ def window(qtbot, tmp_path, monkeypatch):
     monkeypatch.setattr(network, "fetch", unexpected)
     widget = Window(Store(tmp_path))
     qtbot.addWidget(widget)
-    widget.show()
+    widget.start()
     yield widget
     qtbot.waitUntil(lambda: not widget.jobs.pending)
 
 
 def test_offline_start_and_month_day_navigation(window, qtbot):
+    window.show_panel("month")
     window.select_day(jdatetime.date(1403, 12, 30))
     qtbot.mouseClick(window.next_month, Qt.MouseButton.LeftButton)
     assert window.day == jdatetime.date(1404, 1, 30)
@@ -143,3 +145,103 @@ def test_midnight_follows_today_but_keeps_browsed_date(window, monkeypatch):
     monkeypatch.setattr(calendar, "today", lambda: calendar.shift_day(following, 1))
     window.tick()
     assert window.day == old
+
+
+def test_default_ui_is_independent_desktop_widgets(window):
+    assert window.width() <= 460
+    assert window.height() <= 430
+    assert not window.findChildren(QTabWidget)
+    assert window.quote_widget.isVisible()
+    assert not window.note_widget.isVisible()
+    for panel in window.panels.values():
+        assert panel.isWindow()
+        assert panel.parentWidget() is None
+        assert panel.windowFlags() & Qt.WindowType.FramelessWindowHint
+        assert panel.windowType() == Qt.WindowType.Tool
+
+
+def test_calendar_can_hide_while_notes_and_reader_stay_visible(window):
+    window.show_panel("notes")
+    window.show_panel("reader")
+    window.hide_panel("calendar")
+    assert not window.isVisible()
+    assert window.note_widget.isVisible()
+    assert window.reader_widget.isVisible()
+    window.reader_widget.close()
+    assert not window.reader_widget.isVisible()
+    assert window.note_widget.isVisible()
+    assert window.store.data["widgets"]["reader"]["visible"] is False
+
+
+def test_positions_sizes_and_visibility_survive_restart(window, qtbot):
+    window.show_panel("notes")
+    window.note_widget.move(40, 100)
+    window.note_widget.resize(540, 350)
+    window.move(90, 40)
+    window.hide_panel("quote")
+    assert window.persist()
+    window.close()
+    restored = Window(Store(window.store.directory))
+    qtbot.addWidget(restored)
+    restored.start()
+    assert restored.pos() == QPoint(90, 40)
+    assert restored.note_widget.pos() == QPoint(40, 100)
+    assert restored.note_widget.width() == 540
+    assert restored.note_widget.isVisible()
+    assert not restored.quote_widget.isVisible()
+
+
+def test_drag_handle_moves_only_the_target_widget(window):
+    panel = window.quote_widget
+    before = panel.pos()
+    calendar_before = window.pos()
+    local = QPointF(12, 12)
+    origin = QPointF(panel.handle.mapToGlobal(QPoint(12, 12)))
+    for kind, position, button, buttons in (
+        (QEvent.Type.MouseButtonPress, origin, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton),
+        (QEvent.Type.MouseMove, origin + QPointF(30, 40), Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton),
+        (
+            QEvent.Type.MouseButtonRelease,
+            origin + QPointF(30, 40),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+        ),
+    ):
+        event = QMouseEvent(kind, local, position, button, buttons, Qt.KeyboardModifier.NoModifier)
+        QApplication.sendEvent(panel.handle, event)
+    assert panel.pos() == before + QPoint(30, 40)
+    assert window.pos() == calendar_before
+    assert window.store.data["widgets"]["quote"]["x"] == panel.x()
+
+
+def test_widget_settings_keep_notes_layout_and_content(window):
+    window.show_panel("notes")
+    window.note_widget.move(70, 110)
+    window.notes_page.editor.setPlainText("Desktop note survives the appearance change")
+    window.show_settings()
+    page = window.settings_page
+    page.background.setChecked(False)
+    page.pin.setChecked(True)
+    page.apply()
+    assert window.note_widget.isVisible()
+    assert window.note_widget.pos() == QPoint(70, 110)
+    assert "survives" in window.notes_page.editor.toPlainText()
+    assert window.store.data["widget_background"] is False
+    assert window.note_widget.windowFlags() & Qt.WindowType.WindowStaysOnTopHint
+
+
+def test_no_tray_keeps_a_recoverable_widget(window):
+    window.tray.hide()
+    window.hide_panel("calendar")
+    window.hide_panel("quote")
+    assert window.isVisible()
+    assert window.store.data["widgets"]["calendar"]["visible"] is True
+
+
+def test_compact_calendar_hides_details_but_not_other_widgets(window):
+    quote_before = window.quote_widget.isVisible()
+    window.toggle_compact()
+    assert window.date_details.isHidden()
+    assert window.shortcut_bar.isHidden()
+    assert window.height() < 260
+    assert window.quote_widget.isVisible() == quote_before

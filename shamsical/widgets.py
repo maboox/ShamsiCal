@@ -21,6 +21,7 @@ def button(text, icon="", callback=None, primary=False):
     widget.setAccessibleName(text)
     widget.setToolTip(text)
     if icon:
+        widget.setProperty("iconName", icon)
         widget.setIcon(qta.icon(icon, color="#77b9ff" if not primary else "white"))
     if primary:
         widget.setObjectName("primary")

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0 — 2026-10-25
+
+- Restored the original desktop-widget workflow: independent frameless calendar, quote, notes, and RSS windows.
+- Added per-widget dragging, resizing, persisted positions/visibility, tray recovery, transparent backgrounds, opacity, and optional always-on-top.
+- Kept the daily calendar small; the month grid is an optional separate widget and settings is a separate dialog.
+- Preserved existing 2.0 notes/feeds/backups and added an explicit v1 widget-layout importer.
+- Retained the network, API-key, storage, dependency, and privacy safeguards from 2.0.
+- Added regression coverage for independent desktop behavior and replaced screenshots/documentation accordingly.
+
 ## 2.0.0 — 2026-10-22
 
 - Rebuilt the desktop UI with a Saturday-first Jalali month grid, Gregorian day labels, selected-day details, visible date navigation, and compact view.

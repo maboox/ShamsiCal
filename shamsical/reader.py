@@ -18,7 +18,7 @@ from .widgets import button, label
 
 
 class ReaderPage(QWidget):
-    def __init__(self, window):
+    def __init__(self, window, compact=False):
         super().__init__()
         self.window = window
         self.items = []
@@ -29,27 +29,38 @@ class ReaderPage(QWidget):
         layout.setContentsMargins(0, 12, 0, 0)
         toolbar = QHBoxLayout()
         self.combo = QComboBox()
-        self.combo.setMinimumWidth(180)
+        self.combo.setMinimumWidth(130 if compact else 180)
         self.combo.setAccessibleName(window.t("feeds"))
         self.combo.addItems([feed["name"] for feed in self.feeds])
         self.combo.currentIndexChanged.connect(self.clear)
         toolbar.addWidget(self.combo, 1)
-        toolbar.addWidget(button(window.t("add_feed"), "ph.plus", self.add))
-        toolbar.addWidget(button(window.t("remove_feed"), "ph.trash", self.remove))
+        add = button(window.t("add_feed"), "ph.plus", self.add)
+        remove = button(window.t("remove_feed"), "ph.trash", self.remove)
+        toolbar.addWidget(add)
+        toolbar.addWidget(remove)
         self.refresh_button = button(window.t("refresh"), "ph.arrow-clockwise", self.refresh, True)
         toolbar.addWidget(self.refresh_button)
+        if compact:
+            for control in (add, remove, self.refresh_button):
+                control.setText("")
+                control.setFixedWidth(34)
         layout.addLayout(toolbar)
         self.status = label(window.t("feed_hint"), "muted", True)
         layout.addWidget(self.status)
-        body = QHBoxLayout()
+        body = QVBoxLayout() if compact else QHBoxLayout()
         self.list = QListWidget()
         self.list.setWordWrap(True)
-        self.list.setMinimumWidth(240)
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.list.setMinimumWidth(0 if compact else 240)
+        if compact:
+            self.list.setMaximumHeight(105)
         self.list.setAccessibleName(window.t("feeds"))
         self.list.currentRowChanged.connect(self.select)
         body.addWidget(self.list, 2)
         detail = QVBoxLayout()
-        self.title = label(window.t("empty_feed"), "heading", True)
+        self.title = label(window.t("empty_feed"), "widgetTitle" if compact else "heading", True)
+        if compact:
+            self.title.setMaximumHeight(90)
         detail.addWidget(self.title)
         self.summary = label("", wrap=True)
         self.summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -60,8 +71,15 @@ class ReaderPage(QWidget):
         detail.addWidget(scroll, 1)
         self.open_button = button(window.t("open_link"), "ph.arrow-square-out", self.open_link)
         self.ai_button = button(window.t("ai"), "ph.sparkle", self.ai)
-        detail.addWidget(self.open_button)
-        detail.addWidget(self.ai_button)
+        if compact:
+            actions = QHBoxLayout()
+            self.ai_button.setText("AI")
+            actions.addWidget(self.open_button, 1)
+            actions.addWidget(self.ai_button)
+            detail.addLayout(actions)
+        else:
+            detail.addWidget(self.open_button)
+            detail.addWidget(self.ai_button)
         body.addLayout(detail, 3)
         layout.addLayout(body, 1)
         self.clear()

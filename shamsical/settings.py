@@ -45,6 +45,35 @@ class SettingsPage(QScrollArea):
             form.addRow(window.t(key), control)
         area.addLayout(form)
         layout.addWidget(appearance)
+        desktop, area = card()
+        area.addWidget(label(window.t("desktop_widgets"), "heading"))
+        self.background = QCheckBox(window.t("background"))
+        self.background.setChecked(window.store.data["widget_background"])
+        area.addWidget(self.background)
+        self.pin = QCheckBox(window.t("pin_widgets"))
+        self.pin.setChecked(window.store.data["always_on_top"])
+        area.addWidget(self.pin)
+        self.opacity = QSpinBox()
+        self.opacity.setRange(65, 100)
+        self.opacity.setSuffix(" %")
+        self.opacity.setValue(window.store.data["widget_opacity"])
+        form = QFormLayout()
+        form.addRow(window.t("opacity"), self.opacity)
+        area.addLayout(form)
+        self.visibility = {}
+        for key, title in (
+            ("calendar", "calendar"),
+            ("quote", "quote_widget"),
+            ("notes", "notes"),
+            ("reader", "feeds"),
+        ):
+            control = QCheckBox(window.t(title))
+            control.setChecked(window.store.data["widgets"][key]["visible"])
+            self.visibility[key] = control
+            area.addWidget(control)
+        area.addWidget(button(window.t("reset_layout"), "ph.arrows-out", window.reset_layout))
+        area.addWidget(button(window.t("v1_layout"), "ph.arrow-counter-clockwise", window.import_v1_layout))
+        layout.addWidget(desktop)
         privacy, area = card()
         area.addWidget(label(window.t("privacy"), "heading"))
         area.addWidget(label(window.t("privacy_copy"), "muted", True))
@@ -182,12 +211,17 @@ class SettingsPage(QScrollArea):
                 "theme": self.theme.currentData(),
                 "font_size": self.size.value(),
                 "online_events": self.online.isChecked(),
+                "widget_background": self.background.isChecked(),
+                "always_on_top": self.pin.isChecked(),
+                "widget_opacity": self.opacity.value(),
                 "quotes": [
                     line.strip()[:1000] for line in self.quotes.toPlainText().splitlines() if line.strip()
                 ][:500],
                 "quote_frequency": self.frequency.currentData(),
             }
         )
+        for key, control in self.visibility.items():
+            self.window.store.data["widgets"][key]["visible"] = control.isChecked()
         if self.window.persist():
             self.window.rebuild()
         else:

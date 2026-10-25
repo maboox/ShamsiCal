@@ -20,6 +20,10 @@ DEFAULTS = {
     "quotes": ["هر روز، فرصتی برای یک شروع تازه است.", "قدم‌های کوچک، مسیرهای بزرگ می‌سازند."],
     "quote_frequency": "daily",
     "compact": False,
+    "widgets": {},
+    "widget_background": True,
+    "always_on_top": False,
+    "widget_opacity": 100,
 }
 
 
@@ -54,9 +58,24 @@ def validate(data):
         raise StorageError("Invalid language or theme")
     if type(data.get("font_size", 11)) is not int or not 9 <= data.get("font_size", 11) <= 16:
         raise StorageError("Invalid font size")
-    for key in ("online_events", "compact"):
+    for key in ("online_events", "compact", "widget_background", "always_on_top"):
         if type(data.get(key, False)) is not bool:
             raise StorageError(f"Invalid {key} preference")
+    if type(data.get("widget_opacity", 100)) is not int or not 65 <= data.get("widget_opacity", 100) <= 100:
+        raise StorageError("Invalid widget opacity")
+    widgets = data.get("widgets", {})
+    if not isinstance(widgets, dict) or set(widgets) - {"calendar", "quote", "notes", "reader", "month"}:
+        raise StorageError("Invalid widget layout")
+    for state in widgets.values():
+        if not isinstance(state, dict) or set(state) - {"x", "y", "width", "height", "visible"}:
+            raise StorageError("Invalid widget state")
+        if "visible" in state and type(state["visible"]) is not bool:
+            raise StorageError("Invalid widget visibility")
+        for key in ("x", "y", "width", "height"):
+            if key in state and (type(state[key]) is not int or not -200_000 <= state[key] <= 200_000):
+                raise StorageError("Invalid widget geometry")
+        if any(state.get(key, 1) <= 0 for key in ("width", "height")):
+            raise StorageError("Invalid widget size")
     if data.get("quote_frequency", "daily") not in ("daily", "hourly", "weekly"):
         raise StorageError("Invalid quote frequency")
     return {**copy.deepcopy(DEFAULTS), **data}

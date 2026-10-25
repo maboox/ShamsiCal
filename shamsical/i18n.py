@@ -1,6 +1,19 @@
 """UI copy. Keys stay stable across both layout directions."""
 
 STRINGS = {
+    "desktop_widgets": ("ویجت‌های دسکتاپ", "Desktop widgets"),
+    "quote_widget": ("نقل‌قول", "Quote"),
+    "month_widget": ("نمای ماه", "Month view"),
+    "hide_widget": ("پنهان‌کردن این ویجت", "Hide this widget"),
+    "widget_menu": ("گزینه‌های ویجت", "Widget options"),
+    "drag_widget": ("برای جابه‌جایی بکشید", "Drag to move"),
+    "show_calendar": ("نمایش تقویم", "Show calendar"),
+    "background": ("پس‌زمینهٔ ویجت‌ها", "Widget backgrounds"),
+    "pin_widgets": ("همیشه بالای پنجره‌ها", "Keep widgets on top"),
+    "opacity": ("وضوح ویجت‌ها", "Widget opacity"),
+    "reset_layout": ("بازنشانی چیدمان ویجت‌ها", "Reset widget positions"),
+    "v1_layout": ("بازیابی چیدمان ویجت‌های نسخهٔ ۱", "Import v1 widget layout"),
+    "quit": ("خروج از برنامه", "Quit ShamsiCal"),
     "tagline": ("روزت را روشن‌تر شروع کن", "A little clarity for every day"),
     "calendar": ("تقویم", "Calendar"),
     "notes": ("یادداشت‌ها", "Notes"),

@@ -1,3 +1,4 @@
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QTextCharFormat
 from PyQt6.QtWidgets import QHBoxLayout, QInputDialog, QListWidget, QMessageBox, QVBoxLayout, QWidget
 
@@ -18,18 +19,25 @@ class NotesPage(QWidget):
         side = QVBoxLayout()
         side.addWidget(button(window.t("new_note"), "ph.plus", self.add_note, True))
         self.list = QListWidget()
-        self.list.setMinimumWidth(180)
-        self.list.setMaximumWidth(270)
+        self.list.setMinimumWidth(110)
+        self.list.setMaximumWidth(180)
         self.list.setAccessibleName(window.t("notes"))
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         side.addWidget(self.list)
         side.addWidget(button(window.t("rename"), "ph.pencil-simple", self.rename))
         side.addWidget(button(window.t("delete"), "ph.trash", self.delete))
         layout.addLayout(side, 1)
         content = QVBoxLayout()
         toolbar = QHBoxLayout()
-        toolbar.addWidget(button(window.t("bold"), "ph.text-bolder", lambda: self.format("bold")))
-        toolbar.addWidget(button(window.t("italic"), "ph.text-italic", lambda: self.format("italic")))
-        toolbar.addWidget(button(window.t("checklist"), "ph.check-square", lambda: self.editor.checklist()))
+        for key, icon, callback in (
+            ("bold", "ph.text-bolder", lambda: self.format("bold")),
+            ("italic", "ph.text-italic", lambda: self.format("italic")),
+            ("checklist", "ph.check-square", lambda: self.editor.checklist()),
+        ):
+            control = button(window.t(key), icon, callback)
+            control.setText("")
+            control.setFixedWidth(38)
+            toolbar.addWidget(control)
         toolbar.addStretch()
         content.addLayout(toolbar)
         self.editor = NoteEdit()
