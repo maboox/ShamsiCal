@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
 authors = [{name = "ShamsiCal contributors"}]
 dependencies = [
-  "PyQt6>=6.11,<6.12", "jdatetime>=6.1,<7", "hijridate>=2.6,<3",
+  "PyQt6>=6.11,<6.13", "jdatetime>=6.1,<7", "hijridate>=2.6,<3",
   "feedparser>=6.0.14,<7", "qtawesome>=1.4.2,<1.5",
   "urllib3>=2.8,<3", "certifi>=2026.10.19",
 ]
