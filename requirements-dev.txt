@@ -1,5 +1,5 @@
 # Tested toolchain. Runtime versions and hashes live in requirements.lock.
-pytest==9.1.1
+pytest==9.2.0
 pytest-qt==4.5.0
 ruff==0.17.1
 pip-audit==2.10.1
